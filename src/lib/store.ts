@@ -155,22 +155,31 @@ const seed = (): DB => ({
   seq: { employee: 4, patient: 0 },
 });
 
+let cache: DB | null = null;
+
 function load(): DB {
-  if (typeof window === "undefined") return seed();
+  if (cache) return cache;
+  if (typeof window === "undefined") {
+    cache = seed();
+    return cache;
+  }
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) {
-      const s = seed();
-      localStorage.setItem(KEY, JSON.stringify(s));
-      return s;
+      cache = seed();
+      localStorage.setItem(KEY, JSON.stringify(cache));
+      return cache;
     }
-    return JSON.parse(raw);
+    cache = JSON.parse(raw) as DB;
+    return cache;
   } catch {
-    return seed();
+    cache = seed();
+    return cache;
   }
 }
 
 function save(db: DB) {
+  cache = db;
   if (typeof window === "undefined") return;
   localStorage.setItem(KEY, JSON.stringify(db));
 }
@@ -181,8 +190,8 @@ export const store = {
   get: (): DB => load(),
   set: (updater: (db: DB) => DB | void) => {
     const db = load();
-    const next = updater(db) || db;
-    save(next);
+    const next = (updater(db) || db) as DB;
+    save({ ...next });
     listeners.forEach((l) => l());
   },
   subscribe: (l: () => void) => {
@@ -190,7 +199,8 @@ export const store = {
     return () => listeners.delete(l);
   },
   reset: () => {
-    localStorage.removeItem(KEY);
+    cache = null;
+    if (typeof window !== "undefined") localStorage.removeItem(KEY);
     listeners.forEach((l) => l());
   },
 };
