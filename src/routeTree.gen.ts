@@ -9,8 +9,44 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ReceptionRouteImport } from './routes/reception'
+import { Route as OpdRouteImport } from './routes/opd'
+import { Route as MedicalRouteImport } from './routes/medical'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as EmployeesRouteImport } from './routes/employees'
 import { Route as IndexRouteImport } from './routes/index'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReceptionRoute = ReceptionRouteImport.update({
+  id: '/reception',
+  path: '/reception',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OpdRoute = OpdRouteImport.update({
+  id: '/opd',
+  path: '/opd',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MedicalRoute = MedicalRouteImport.update({
+  id: '/medical',
+  path: '/medical',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmployeesRoute = EmployeesRouteImport.update({
+  id: '/employees',
+  path: '/employees',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +55,116 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/employees': typeof EmployeesRoute
+  '/login': typeof LoginRoute
+  '/medical': typeof MedicalRoute
+  '/opd': typeof OpdRoute
+  '/reception': typeof ReceptionRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/employees': typeof EmployeesRoute
+  '/login': typeof LoginRoute
+  '/medical': typeof MedicalRoute
+  '/opd': typeof OpdRoute
+  '/reception': typeof ReceptionRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/employees': typeof EmployeesRoute
+  '/login': typeof LoginRoute
+  '/medical': typeof MedicalRoute
+  '/opd': typeof OpdRoute
+  '/reception': typeof ReceptionRoute
+  '/settings': typeof SettingsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/employees'
+    | '/login'
+    | '/medical'
+    | '/opd'
+    | '/reception'
+    | '/settings'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/employees'
+    | '/login'
+    | '/medical'
+    | '/opd'
+    | '/reception'
+    | '/settings'
+  id:
+    | '__root__'
+    | '/'
+    | '/employees'
+    | '/login'
+    | '/medical'
+    | '/opd'
+    | '/reception'
+    | '/settings'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  EmployeesRoute: typeof EmployeesRoute
+  LoginRoute: typeof LoginRoute
+  MedicalRoute: typeof MedicalRoute
+  OpdRoute: typeof OpdRoute
+  ReceptionRoute: typeof ReceptionRoute
+  SettingsRoute: typeof SettingsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reception': {
+      id: '/reception'
+      path: '/reception'
+      fullPath: '/reception'
+      preLoaderRoute: typeof ReceptionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/opd': {
+      id: '/opd'
+      path: '/opd'
+      fullPath: '/opd'
+      preLoaderRoute: typeof OpdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/medical': {
+      id: '/medical'
+      path: '/medical'
+      fullPath: '/medical'
+      preLoaderRoute: typeof MedicalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/employees': {
+      id: '/employees'
+      path: '/employees'
+      fullPath: '/employees'
+      preLoaderRoute: typeof EmployeesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,7 +177,23 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  EmployeesRoute: EmployeesRoute,
+  LoginRoute: LoginRoute,
+  MedicalRoute: MedicalRoute,
+  OpdRoute: OpdRoute,
+  ReceptionRoute: ReceptionRoute,
+  SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
