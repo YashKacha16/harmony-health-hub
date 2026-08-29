@@ -20,9 +20,9 @@ import { settingsService } from "@/services/settingsService";
 import type { Employee, Role } from "@/lib/store";
 
 export const Route = createFileRoute("/employees")({
-  head: () => ({ meta: [{ title: "Employees — MediCore HMS" }, { name: "description", content: "Manage hospital staff, roles, and access." }] }),
+  head: () => ({ meta: [{ title: "Employees — Lifecare Hospital" }, { name: "description", content: "Manage hospital staff, roles, and access." }] }),
   component: () => (
-    <RequireAuth roles={["Admin", "Doctor"]}>
+    <RequireAuth module="Employees" action="Access">
       <AppShell><EmployeesPage /></AppShell>
     </RequireAuth>
   ),

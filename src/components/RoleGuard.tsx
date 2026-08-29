@@ -3,10 +3,11 @@ import type { ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import type { Role } from "@/lib/store";
 
-export function RequireAuth({ children, roles }: { children: ReactNode; roles?: Role[] }) {
-  const { user } = useAuth();
+export function RequireAuth({ children, module, action }: { children: ReactNode; module?: string; action?: string }) {
+  const { user, hasPermission } = useAuth();
   if (!user) return <Navigate to="/login" />;
-  if (roles && !roles.includes(user.role)) {
+  
+  if (module && action && !hasPermission(module, action)) {
     return (
       <div className="grid min-h-[60vh] place-items-center">
         <div className="text-center">

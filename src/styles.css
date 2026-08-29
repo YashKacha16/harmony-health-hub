@@ -201,8 +201,13 @@
     bottom: auto !important;
   }
 
-  /* Hide everything inside the dialog except our printable area */
-  div[role="dialog"] > *:not(.print-area) {
+  /* Hide the close button in the dialog */
+  div[role="dialog"] button.absolute.right-4 {
+    display: none !important;
+  }
+
+  /* Hide headers inside dialog that aren't marked for print */
+  div[role="dialog"] .sm\:text-left {
     display: none !important;
   }
 

@@ -36,6 +36,16 @@ function mapPatient(p: PatientBackendDto): Patient {
       place: po.place,
       deformity: po.deformity || ""
     })) || [],
+    ward: p.ward,
+    wardNumber: p.wardNumber,
+    relativeName: p.relativeName,
+    relation: p.relation,
+    relativePhone: p.relativePhone,
+    relativeAddress: p.relativeAddress,
+    maritalStatus: p.maritalStatus,
+    child: p.child,
+    occupation: p.occupation,
+    religion: p.religion,
   };
 }
 
@@ -100,6 +110,16 @@ export const receptionService = {
           place: po.place,
           deformity: po.deformity || ""
         })),
+        ward: data.ward,
+        wardNumber: data.wardNumber,
+        relativeName: data.relativeName,
+        relation: data.relation,
+        relativePhone: data.relativePhone,
+        relativeAddress: data.relativeAddress,
+        maritalStatus: data.maritalStatus,
+        child: data.child,
+        occupation: data.occupation,
+        religion: data.religion,
       };
       
       const newPatient = await apiService.patients.create(payload);

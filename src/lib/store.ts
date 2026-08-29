@@ -19,6 +19,7 @@ export interface Employee {
 export interface Department { id: string; name: string; }
 export interface Charge { id: string; name: string; amount: number; }
 export interface MedicineCategory { id: string; name: string; unit: string; piecesPerUnit?: number; }
+export interface IpdWard { id: string; name: string; pricePerDay: number; }
 
 export interface HospitalSettings {
   helpline: string;
@@ -56,6 +57,16 @@ export interface Patient {
   insuranceCompany?: string;
   policyNumber?: string;
   pastOperations?: PastOperation[];
+  ward?: string;
+  wardNumber?: string;
+  relativeName?: string;
+  relation?: string;
+  relativePhone?: string;
+  relativeAddress?: string;
+  maritalStatus?: string;
+  child?: string;
+  occupation?: string;
+  religion?: string;
 }
 
 export interface PrescribedMedicine {
@@ -114,6 +125,7 @@ interface DB {
   departments: Department[];
   charges: Charge[];
   categories: MedicineCategory[];
+  ipdWards: IpdWard[];
   patients: Patient[];
   prescriptions: Prescription[];
   medicines: Medicine[];
@@ -145,10 +157,14 @@ const seed = (): DB => ({
     { id: "c3", name: "IPD Admission Charge", amount: 2500 },
   ],
   categories: [
-    { id: "cat1", name: "Tablet", unit: "Strip", piecesPerUnit: 10 },
-    { id: "cat2", name: "Syrup", unit: "Bottle", piecesPerUnit: 1 },
-    { id: "cat3", name: "Injection", unit: "Piece", piecesPerUnit: 1 },
-    { id: "cat4", name: "Capsule", unit: "Strip", piecesPerUnit: 10 },
+    { id: "c1", name: "Tablet", unit: "Strips", piecesPerUnit: 10 },
+    { id: "c2", name: "Syrup", unit: "Bottles", piecesPerUnit: 1 },
+    { id: "c3", name: "Injection", unit: "Vials", piecesPerUnit: 1 }
+  ],
+  ipdWards: [
+    { id: "w1", name: "General Ward", pricePerDay: 500 },
+    { id: "w2", name: "Private Room", pricePerDay: 2000 },
+    { id: "w3", name: "ICU", pricePerDay: 5000 }
   ],
   patients: [],
   prescriptions: [],
@@ -183,8 +199,11 @@ function load(): DB {
       cache.hospitalSettings = { 
         helpline: "93 74 108 108 / 8000 8111", 
         address: "Vijardiya", 
-        logoUrl: "/logo.png" 
+        logoUrl: "/logo.jpg" 
       };
+    }
+    if (!cache.ipdWards) {
+      cache.ipdWards = seed().ipdWards;
     }
     return cache;
   } catch {

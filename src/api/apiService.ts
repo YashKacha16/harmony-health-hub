@@ -124,6 +124,16 @@ export interface PatientBackendDto {
   insuranceCompany?: string;
   policyNumber?: string;
   pastOperations: PastOperationBackendDto[];
+  ward?: string;
+  wardNumber?: string;
+  relativeName?: string;
+  relation?: string;
+  relativePhone?: string;
+  relativeAddress?: string;
+  maritalStatus?: string;
+  child?: string;
+  occupation?: string;
+  religion?: string;
 }
 
 export interface CreatePatientPayload {
@@ -149,8 +159,49 @@ export interface CreatePatientPayload {
   insuranceCompany?: string;
   policyNumber?: string;
   pastOperations?: PastOperationBackendDto[];
+  ward?: string;
+  wardNumber?: string;
+  relativeName?: string;
+  relation?: string;
+  relativePhone?: string;
+  relativeAddress?: string;
+  maritalStatus?: string;
+  child?: string;
+  occupation?: string;
+  religion?: string;
 }
 
+export interface UpdatePatientPayload {
+  name?: string;
+  phone?: string;
+  age?: number;
+  gender?: string;
+  weight?: number;
+  height?: number;
+  caste?: string;
+  addressLine?: string;
+  state?: string;
+  city?: string;
+  pincode?: string;
+  type?: string;
+  department?: string;
+  doctor?: string;
+  opdCharge?: number;
+  status?: string;
+  allergy?: string;
+  deformity?: string;
+  complaint?: string;
+  mediclaim?: boolean;
+  insuranceCompany?: string;
+  policyNumber?: string;
+  pastOperations?: PastOperationBackendDto[];
+  ward?: string;
+  wardNumber?: string;
+  relativeName?: string;
+  relation?: string;
+  relativePhone?: string;
+  relativeAddress?: string;
+}
 
 export interface CreateEmployeePayload {
   name: string;
@@ -237,6 +288,23 @@ export interface CreateBillPayload {
   discountValue: number;
   total: number;
   items: BillItemBackendDto[];
+}
+
+export interface RolePermissionBackendDto {
+  id: number;
+  roleName: string;
+  moduleName: string;
+  actionName: string;
+  isAllowed: boolean;
+  isLocked: boolean;
+}
+
+export interface SaveRolePermissionPayload {
+  roleName: string;
+  moduleName: string;
+  actionName: string;
+  isAllowed: boolean;
+  isLocked: boolean;
 }
 
 export const apiService = {
@@ -427,6 +495,28 @@ export const apiService = {
       });
     },
   },
+  ipdWards: {
+    getAll: async (): Promise<{ id: number; name: string; pricePerDay: number }[]> => {
+      return apiClient<{ id: number; name: string; pricePerDay: number }[]>("/ipdWards");
+    },
+    create: async (payload: { name: string; pricePerDay: number }): Promise<{ id: number; name: string; pricePerDay: number }> => {
+      return apiClient<{ id: number; name: string; pricePerDay: number }>("/ipdWards", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+    update: async (id: number, payload: { name?: string; pricePerDay?: number }): Promise<{ id: number; name: string; pricePerDay: number }> => {
+      return apiClient<{ id: number; name: string; pricePerDay: number }>(`/ipdWards/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+    },
+    delete: async (id: number): Promise<void> => {
+      return apiClient<void>(`/ipdWards/${id}`, {
+        method: "DELETE",
+      });
+    },
+  },
   auth: {
     login: async (email: string, password: string): Promise<EmployeeBackendDto> => {
       return apiClient<EmployeeBackendDto>("/employee/login", {
@@ -451,6 +541,34 @@ export const apiService = {
       });
       if (!res.ok) throw new Error("Failed to upload logo");
       return res.json();
+    }
+  },
+  rolePermissions: {
+    getAll: async (): Promise<RolePermissionBackendDto[]> => {
+      return apiClient<RolePermissionBackendDto[]>("/rolepermission");
+    },
+    save: async (payload: SaveRolePermissionPayload): Promise<RolePermissionBackendDto> => {
+      return apiClient<RolePermissionBackendDto>("/rolepermission", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+    delete: async (id: number): Promise<void> => {
+      return apiClient<void>(`/rolepermission/${id}`, {
+        method: "DELETE",
+      });
+    },
+    toggleLock: async (roleName: string, isLocked: boolean): Promise<void> => {
+      return apiClient<void>(`/rolepermission/lock/${encodeURIComponent(roleName)}`, {
+        method: "PATCH",
+        body: JSON.stringify(isLocked),
+      });
+    },
+    renameRole: async (oldName: string, newName: string): Promise<void> => {
+      return apiClient<void>("/rolepermission/rename", {
+        method: "PATCH",
+        body: JSON.stringify({ oldName, newName }),
+      });
     }
   }
 };

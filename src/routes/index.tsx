@@ -10,7 +10,7 @@ import { useDB } from "@/lib/useStore";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Dashboard — MediCore HMS" },
+      { title: "Dashboard — Lifecare Hospital" },
       { name: "description", content: "Live overview of patients, prescriptions, and pharmacy stock." },
     ],
   }),

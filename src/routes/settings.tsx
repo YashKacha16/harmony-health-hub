@@ -13,11 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useDB } from "@/lib/useStore";
 import { settingsService } from "@/services/settingsService";
+import { RolePermissionsTab } from "@/components/RolePermissionsTab";
 
 export const Route = createFileRoute("/settings")({
-  head: () => ({ meta: [{ title: "Settings — MediCore HMS" }, { name: "description", content: "Configure departments, charges, and medicine categories." }] }),
+  head: () => ({ meta: [{ title: "Settings — Lifecare Hospital" }, { name: "description", content: "Configure departments, charges, and medicine categories." }] }),
   component: () => (
-    <RequireAuth roles={["Admin", "Doctor"]}>
+    <RequireAuth module="Settings" action="Access">
       <AppShell><SettingsPage /></AppShell>
     </RequireAuth>
   ),
@@ -38,12 +39,16 @@ function SettingsPage() {
           <TabsTrigger value="departments">Departments</TabsTrigger>
           <TabsTrigger value="charges">Charges</TabsTrigger>
           <TabsTrigger value="categories">Medicine categories</TabsTrigger>
+          <TabsTrigger value="wards">IPD Wards</TabsTrigger>
           <TabsTrigger value="hospital">Hospital Info</TabsTrigger>
+          <TabsTrigger value="roles">Roles & Permissions</TabsTrigger>
         </TabsList>
         <TabsContent value="departments" className="mt-4"><Departments /></TabsContent>
         <TabsContent value="charges" className="mt-4"><Charges /></TabsContent>
         <TabsContent value="categories" className="mt-4"><Categories /></TabsContent>
+        <TabsContent value="wards" className="mt-4"><IpdWards /></TabsContent>
         <TabsContent value="hospital" className="mt-4"><HospitalSettings /></TabsContent>
+        <TabsContent value="roles" className="mt-4"><RolePermissionsTab /></TabsContent>
       </Tabs>
     </div>
   );
@@ -174,7 +179,7 @@ function HospitalSettings() {
   const [logoPreview, setLogoPreview] = useState(db.hospitalSettings?.logoUrl || "");
   const [isUploading, setIsUploading] = useState(false);
 
-  const save = async () => {
+  const handleSave = async () => {
     setIsUploading(true);
     let finalLogoUrl = db.hospitalSettings?.logoUrl || "";
     try {
@@ -182,7 +187,7 @@ function HospitalSettings() {
         finalLogoUrl = await settingsService.uploadLogo(logoFile);
       }
       settingsService.updateHospitalSettings({ helpline, address, logoUrl: finalLogoUrl });
-      toast.success("Hospital settings updated");
+      toast.success("Hospital settings updated successfully.");
     } catch (err) {
       toast.error("Failed to save settings");
     } finally {
@@ -236,11 +241,46 @@ function HospitalSettings() {
             )}
             <p className="text-xs text-muted-foreground mt-1">This logo will be displayed on printed prescriptions and bills.</p>
           </div>
-          <Button onClick={save} disabled={isUploading}>
+          <Button onClick={handleSave} disabled={isUploading}>
             {isUploading ? "Saving..." : "Save Changes"}
           </Button>
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function IpdWards() {
+  const db = useDB();
+  const [name, setName] = useState("");
+  const [price, setPrice] = useState("");
+
+  useEffect(() => {
+    settingsService.listIpdWards();
+  }, []);
+  
+  const add = async () => { if (!name) return; await settingsService.addIpdWard(name, Number(price) || 0); setName(""); setPrice(""); toast.success("Ward added"); };
+  return (
+    <Card className="shadow-[var(--shadow-card)]"><CardContent className="p-5 space-y-4">
+      <div className="grid sm:grid-cols-[1fr_180px_auto] gap-2">
+        <Input placeholder="Ward name (e.g. General Ward)" value={name} onChange={(e) => setName(e.target.value)} />
+        <Input placeholder="Price / day" type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
+        <Button onClick={add}><Plus className="h-4 w-4 mr-1" /> Add</Button>
+      </div>
+      <div className="rounded-lg border">
+        <Table>
+          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Price / Day</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+          <TableBody>
+            {db.ipdWards?.map((w) => (
+              <TableRow key={w.id}>
+                <TableCell><Input defaultValue={w.name} onBlur={(e) => settingsService.updateIpdWard(w.id, { name: e.target.value })} /></TableCell>
+                <TableCell><Input type="number" defaultValue={w.pricePerDay} onBlur={(e) => settingsService.updateIpdWard(w.id, { pricePerDay: Number(e.target.value) || 0 })} /></TableCell>
+                <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={async () => { await settingsService.removeIpdWard(w.id); toast.success("Removed"); }}><Trash2 className="h-4 w-4" /></Button></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </CardContent></Card>
   );
 }

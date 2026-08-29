@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Users, ClipboardList, Stethoscope, Pill, Settings as SettingsIcon, LogOut, Menu,
+  LayoutDashboard, Users, ClipboardList, Stethoscope, Pill, Settings as SettingsIcon, LogOut, Menu, BedDouble,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
@@ -9,35 +9,39 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/lib/store";
 
-const NAV: { to: string; label: string; icon: React.ComponentType<{ className?: string }>; roles: Role[] }[] = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["Admin", "Doctor", "Nurse", "Receptionist", "Pharmacist"] },
-  { to: "/employees", label: "Employees", icon: Users, roles: ["Admin", "Doctor"] },
-  { to: "/reception", label: "Reception", icon: ClipboardList, roles: ["Admin", "Receptionist", "Doctor"] },
-  { to: "/opd", label: "OPD", icon: Stethoscope, roles: ["Admin", "Doctor", "Nurse"] },
-  { to: "/medical", label: "Medical / Pharmacy", icon: Pill, roles: ["Admin", "Pharmacist", "Doctor"] },
-  { to: "/settings", label: "Settings", icon: SettingsIcon, roles: ["Admin", "Doctor"] },
+const NAV: { to: string; label: string; icon: React.ComponentType<{ className?: string }>; requiredModule?: string; requiredAction?: string }[] = [
+  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/employees", label: "Employees", icon: Users, requiredModule: "Employees", requiredAction: "Access" },
+  { to: "/reception", label: "Reception", icon: ClipboardList, requiredModule: "Reception", requiredAction: "Access" },
+  { to: "/opd", label: "OPD", icon: Stethoscope, requiredModule: "OPD", requiredAction: "Access" },
+  { to: "/ipd", label: "IPD", icon: BedDouble, requiredModule: "OPD", requiredAction: "Access" },
+  { to: "/medical", label: "Medical / Pharmacy", icon: Pill, requiredModule: "Medical", requiredAction: "Access" },
+  { to: "/settings", label: "Settings", icon: SettingsIcon, requiredModule: "Settings", requiredAction: "Access" },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
 
   if (!user) return <>{children}</>;
 
-  const items = NAV.filter((n) => n.roles.includes(user.role));
+  const items = NAV.filter((n) => {
+    if (!n.requiredModule) return true;
+    return hasPermission(n.requiredModule, n.requiredAction || "View");
+  });
 
   const isActive = (to: string) => (to === "/" ? pathname === "/" : pathname.startsWith(to));
 
   const Sidebar = (
     <aside className="flex h-full w-64 flex-col border-r bg-sidebar text-sidebar-foreground">
       <div className="flex items-center gap-2 px-5 py-5 border-b border-sidebar-border">
-        <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-          <Stethoscope className="h-5 w-5" />
+        <div className="h-9 w-9 shrink-0 overflow-hidden rounded-lg shadow-sm">
+          <img src="/logo.jpg" alt="Logo" className="h-full w-full object-cover" />
         </div>
         <div className="min-w-0">
-          <div className="font-semibold truncate">MediCore HMS</div>
+          <div className="font-semibold truncate">Lifecare Hospital</div>
           <div className="text-xs text-muted-foreground truncate">Hospital Management</div>
         </div>
       </div>

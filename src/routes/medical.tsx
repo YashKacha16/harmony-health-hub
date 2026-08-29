@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { useDB } from "@/lib/useStore";
 import { medicalService } from "@/services/medicalService";
 import { opdService } from "@/services/opdService";
@@ -24,7 +25,7 @@ import type { Bill, BillItem, Medicine, Patient, Prescription } from "@/lib/stor
 export const Route = createFileRoute("/medical")({
   head: () => ({ meta: [{ title: "Pharmacy — MediCore HMS" }, { name: "description", content: "Medicine stock and dispensing." }] }),
   component: () => (
-    <RequireAuth roles={["Admin", "Pharmacist", "Doctor"]}>
+    <RequireAuth module="Medical" action="Access">
       <AppShell><MedicalPage /></AppShell>
     </RequireAuth>
   ),
@@ -203,6 +204,8 @@ function DispenseTab() {
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [isWalkIn, setIsWalkIn] = useState(false);
+  const [walkInName, setWalkInName] = useState("");
 
   useEffect(() => {
     if (code.trim().length >= 2) {
@@ -275,9 +278,19 @@ function DispenseTab() {
   const total = Math.max(0, subtotal - discountAmount);
 
   const generateBill = async () => {
-    if (!patient || items.length === 0) return toast.error("Select at least one medicine");
+    let p = patient;
+    if (isWalkIn) {
+      if (!walkInName.trim()) {
+        toast.error("Please enter a customer name.");
+        return;
+      }
+      p = { id: "walk-in", code: "WALK-IN", name: walkInName.trim() } as Patient;
+      setPatient(p);
+    }
+
+    if (!p || items.length === 0) return toast.error("Select at least one medicine");
     const b = await medicalService.createBill({
-      patientId: patient.id, patientCode: patient.code, items,
+      patientId: p.id, patientCode: p.code, items,
       subtotal, discountType, discountValue: dv, total,
     });
     toast.success("Bill generated");
@@ -288,39 +301,66 @@ function DispenseTab() {
     <Card className="shadow-[var(--shadow-card)]">
       <CardContent className="p-5 space-y-5">
         <div className="flex flex-wrap gap-3 items-end relative">
-          <div className="relative">
-            <F label="Patient code / name">
+          <div className="flex items-center space-x-2 mr-4 mb-2">
+            <Switch id="walkin" checked={isWalkIn} onCheckedChange={(c: boolean) => {
+              setIsWalkIn(c);
+              if (c) {
+                setPatient(null);
+                setRx(null);
+                setLines([{ medicineId: "", selected: true, units: "1" }]);
+              } else {
+                setLines([]);
+                setCode("");
+              }
+            }} />
+            <Label htmlFor="walkin">Walk-in Customer</Label>
+          </div>
+
+          {isWalkIn ? (
+            <F label="Customer name">
               <Input 
-                value={code} 
-                onChange={(e) => setCode(e.target.value)} 
-                onFocus={() => setShowResults(true)}
-                onBlur={() => setTimeout(() => setShowResults(false), 200)}
-                onKeyDown={handleKeyDown}
-                placeholder="e.g. P-2026-00001 or Yash" 
+                value={walkInName} 
+                onChange={(e) => setWalkInName(e.target.value)} 
+                placeholder="Enter customer name" 
                 className="w-64"
               />
             </F>
-            {showResults && searchResults.length > 0 && (
-              <div className="absolute top-full left-0 mt-1 w-full bg-popover text-popover-foreground rounded-md border shadow-md z-10 overflow-hidden">
-                {searchResults.map((p, idx) => (
-                  <div 
-                    key={p.id} 
-                    className={`px-3 py-2 text-sm hover:bg-muted cursor-pointer transition-colors ${
-                      idx === activeIndex ? "bg-muted font-medium" : ""
-                    }`}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                      setCode(p.name);
-                      setShowResults(false);
-                    }}
-                  >
-                    {p.name} <span className="text-muted-foreground text-xs">({p.code})</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <Button onClick={search}>Fetch prescription</Button>
+          ) : (
+            <div className="relative">
+              <F label="Patient code / name">
+                <Input 
+                  value={code} 
+                  onChange={(e) => setCode(e.target.value)} 
+                  onFocus={() => setShowResults(true)}
+                  onBlur={() => setTimeout(() => setShowResults(false), 200)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="e.g. P-2026-00001 or Yash" 
+                  className="w-64"
+                />
+              </F>
+              {showResults && searchResults.length > 0 && (
+                <div className="absolute top-full left-0 mt-1 w-full bg-popover text-popover-foreground rounded-md border shadow-md z-10 overflow-hidden">
+                  {searchResults.map((p, idx) => (
+                    <div 
+                      key={p.id} 
+                      className={`px-3 py-2 text-sm hover:bg-muted cursor-pointer transition-colors ${
+                        idx === activeIndex ? "bg-muted font-medium" : ""
+                      }`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setCode(p.name);
+                        setShowResults(false);
+                      }}
+                    >
+                      {p.name} <span className="text-muted-foreground text-xs">({p.code})</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {!isWalkIn && <Button onClick={search}>Fetch prescription</Button>}
         </div>
 
         {patient && (
@@ -332,7 +372,7 @@ function DispenseTab() {
           </div>
         )}
 
-        {patient && (
+        {(patient || isWalkIn) && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Medicines</h3>

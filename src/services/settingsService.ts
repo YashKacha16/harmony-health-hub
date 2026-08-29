@@ -168,6 +168,56 @@ export const settingsService = {
     }
   },
 
+  // IPD Wards
+  listIpdWards: async (): Promise<{ id: string; name: string; pricePerDay: number }[]> => {
+    try {
+      const data = await apiService.ipdWards.getAll();
+      const mapped = data.map((w) => ({ id: w.id.toString(), name: w.name, pricePerDay: w.pricePerDay }));
+      store.set((db) => {
+        db.ipdWards = mapped;
+      });
+      return mapped;
+    } catch (err) {
+      console.error("Failed to list IPD wards from backend, falling back to local store:", err);
+      return store.get().ipdWards;
+    }
+  },
+  addIpdWard: async (name: string, pricePerDay: number) => {
+    try {
+      const newWard = await apiService.ipdWards.create({ name, pricePerDay });
+      store.set((db) => {
+        db.ipdWards.push({ id: newWard.id.toString(), name: newWard.name, pricePerDay: newWard.pricePerDay });
+      });
+    } catch (err) {
+      console.error("Failed to add ward to backend, updating local store only:", err);
+      store.set((db) => { db.ipdWards.push({ id: uid(), name, pricePerDay }); });
+    }
+  },
+  updateIpdWard: async (id: string, data: Partial<{ name: string; pricePerDay: number }>) => {
+    try {
+      const numId = parseInt(id, 10);
+      if (!isNaN(numId)) {
+        await apiService.ipdWards.update(numId, data);
+      }
+      store.set((db) => { const w = db.ipdWards.find((x) => x.id === id); if (w) Object.assign(w, data); });
+    } catch (err) {
+      console.error("Failed to update ward on backend:", err);
+      store.set((db) => { const w = db.ipdWards.find((x) => x.id === id); if (w) Object.assign(w, data); });
+    }
+  },
+  removeIpdWard: async (id: string) => {
+    try {
+      const numId = parseInt(id, 10);
+      if (!isNaN(numId)) {
+        await apiService.ipdWards.delete(numId);
+      }
+      store.set((db) => { db.ipdWards = db.ipdWards.filter((w) => w.id !== id); });
+    } catch (err) {
+      console.error("Failed to remove ward from backend:", err);
+      store.set((db) => { db.ipdWards = db.ipdWards.filter((w) => w.id !== id); });
+    }
+  },
+
   // Hospital Settings
   updateHospitalSettings: (data: Partial<{ helpline: string; address: string; logoUrl: string }>) => {
     store.set((db) => {

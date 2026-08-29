@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as EmployeesRouteImport } from './routes/employees'
+import { Route as IpdRouteImport } from './routes/ipd'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MedicalRouteImport } from './routes/medical'
 import { Route as OpdRouteImport } from './routes/opd'
@@ -26,6 +27,11 @@ const IndexRoute = IndexRouteImport.update({
 const EmployeesRoute = EmployeesRouteImport.update({
   id: '/employees',
   path: '/employees',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IpdRoute = IpdRouteImport.update({
+  id: '/ipd',
+  path: '/ipd',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -62,6 +68,7 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/employees': typeof EmployeesRoute
+  '/ipd': typeof IpdRoute
   '/login': typeof LoginRoute
   '/medical': typeof MedicalRoute
   '/opd': typeof OpdRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/employees': typeof EmployeesRoute
+  '/ipd': typeof IpdRoute
   '/login': typeof LoginRoute
   '/medical': typeof MedicalRoute
   '/opd': typeof OpdRoute
@@ -83,6 +91,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/employees': typeof EmployeesRoute
+  '/ipd': typeof IpdRoute
   '/login': typeof LoginRoute
   '/medical': typeof MedicalRoute
   '/opd': typeof OpdRoute
@@ -95,6 +104,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/employees'
+    | '/ipd'
     | '/login'
     | '/medical'
     | '/opd'
@@ -105,6 +115,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/employees'
+    | '/ipd'
     | '/login'
     | '/medical'
     | '/opd'
@@ -115,6 +126,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/employees'
+    | '/ipd'
     | '/login'
     | '/medical'
     | '/opd'
@@ -126,6 +138,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   EmployeesRoute: typeof EmployeesRoute
+  IpdRoute: typeof IpdRoute
   LoginRoute: typeof LoginRoute
   MedicalRoute: typeof MedicalRoute
   OpdRoute: typeof OpdRoute
@@ -148,6 +161,13 @@ declare module '@tanstack/react-router' {
       path: '/employees'
       fullPath: '/employees'
       preLoaderRoute: typeof EmployeesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ipd': {
+      id: '/ipd'
+      path: '/ipd'
+      fullPath: '/ipd'
+      preLoaderRoute: typeof IpdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -198,6 +218,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   EmployeesRoute: EmployeesRoute,
+  IpdRoute: IpdRoute,
   LoginRoute: LoginRoute,
   MedicalRoute: MedicalRoute,
   OpdRoute: OpdRoute,

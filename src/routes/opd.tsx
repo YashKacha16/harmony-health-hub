@@ -24,7 +24,7 @@ import type { Patient, PrescribedMedicine, Prescription } from "@/lib/store";
 export const Route = createFileRoute("/opd")({
   head: () => ({ meta: [{ title: "OPD — MediCore HMS" }, { name: "description", content: "OPD queue and prescriptions." }] }),
   component: () => (
-    <RequireAuth roles={["Admin", "Doctor", "Nurse"]}>
+    <RequireAuth module="OPD" action="Access">
       <AppShell><OPDPage /></AppShell>
     </RequireAuth>
   ),

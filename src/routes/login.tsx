@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Sign in — MediCore HMS" },
+      { title: "Sign in — Lifecare Hospital" },
       { name: "description", content: "Sign in to the hospital management system." },
     ],
   }),
@@ -62,7 +62,7 @@ function LoginPage() {
           <div className="grid h-10 w-10 place-items-center rounded-lg bg-white/15 backdrop-blur">
             <Stethoscope className="h-5 w-5" />
           </div>
-          <div className="font-semibold text-lg">MediCore HMS</div>
+          <div className="font-semibold text-lg">Lifecare Hospital</div>
         </div>
         <div className="max-w-md space-y-4">
           <h1 className="text-4xl font-semibold leading-tight">Care that runs on clarity.</h1>
