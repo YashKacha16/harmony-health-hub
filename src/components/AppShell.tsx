@@ -5,16 +5,17 @@ import {
 import { useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/lib/store";
 
 const NAV: { to: string; label: string; icon: React.ComponentType<{ className?: string }>; roles: Role[] }[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["Admin", "Doctor", "Nurse", "Receptionist", "Pharmacist"] },
-  { to: "/employees", label: "Employees", icon: Users, roles: ["Admin"] },
-  { to: "/reception", label: "Reception", icon: ClipboardList, roles: ["Admin", "Receptionist"] },
+  { to: "/employees", label: "Employees", icon: Users, roles: ["Admin", "Doctor"] },
+  { to: "/reception", label: "Reception", icon: ClipboardList, roles: ["Admin", "Receptionist", "Doctor"] },
   { to: "/opd", label: "OPD", icon: Stethoscope, roles: ["Admin", "Doctor", "Nurse"] },
-  { to: "/medical", label: "Medical / Pharmacy", icon: Pill, roles: ["Admin", "Pharmacist"] },
-  { to: "/settings", label: "Settings", icon: SettingsIcon, roles: ["Admin"] },
+  { to: "/medical", label: "Medical / Pharmacy", icon: Pill, roles: ["Admin", "Pharmacist", "Doctor"] },
+  { to: "/settings", label: "Settings", icon: SettingsIcon, roles: ["Admin", "Doctor"] },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -86,7 +87,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen w-full bg-background">
       {/* Desktop sidebar */}
-      <div className="hidden md:block">{Sidebar}</div>
+      <div className="hidden md:block sticky top-0 h-screen">{Sidebar}</div>
 
       {/* Mobile drawer */}
       {open && (
@@ -101,11 +102,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <h1 className="text-sm font-medium text-muted-foreground truncate">
+          <h1 className="text-sm font-medium text-muted-foreground truncate flex-1">
             {items.find((n) => isActive(n.to))?.label || "Dashboard"}
           </h1>
+          <ThemeToggle />
         </header>
         <main className="flex-1 p-4 md:p-6 lg:p-8">{children}</main>
+        <footer className="sticky bottom-0 z-30 py-2 text-center text-xs text-muted-foreground border-t bg-card/90 backdrop-blur">
+          Developed and managed by Pheonix Infotech
+        </footer>
       </div>
     </div>
   );

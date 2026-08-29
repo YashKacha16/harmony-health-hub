@@ -20,6 +20,12 @@ export interface Department { id: string; name: string; }
 export interface Charge { id: string; name: string; amount: number; }
 export interface MedicineCategory { id: string; name: string; unit: string; piecesPerUnit?: number; }
 
+export interface HospitalSettings {
+  helpline: string;
+  address: string;
+  logoUrl: string;
+}
+
 export interface PastOperation { type: string; bodyPart: string; place: string; deformity: string; }
 
 export interface Patient {
@@ -55,10 +61,10 @@ export interface Patient {
 export interface PrescribedMedicine {
   medicineId: string;
   name: string;
-  morning: boolean;
-  afternoon: boolean;
-  evening: boolean;
-  night: boolean;
+  morning: string;
+  afternoon: string;
+  evening: string;
+  night: string;
 }
 export interface Prescription {
   id: string;
@@ -113,6 +119,7 @@ interface DB {
   medicines: Medicine[];
   bills: Bill[];
   seq: { employee: number; patient: number };
+  hospitalSettings: HospitalSettings;
 }
 
 const KEY = "hms.db.v1";
@@ -153,6 +160,7 @@ const seed = (): DB => ({
   ],
   bills: [],
   seq: { employee: 4, patient: 0 },
+  hospitalSettings: { helpline: "93 74 108 108 / 8000 8111", address: "Vijardiya", logoUrl: "" },
 });
 
 let cache: DB | null = null;
@@ -171,6 +179,13 @@ function load(): DB {
       return cache;
     }
     cache = JSON.parse(raw) as DB;
+    if (!cache.hospitalSettings) {
+      cache.hospitalSettings = { 
+        helpline: "93 74 108 108 / 8000 8111", 
+        address: "Vijardiya", 
+        logoUrl: "/logo.png" 
+      };
+    }
     return cache;
   } catch {
     cache = seed();

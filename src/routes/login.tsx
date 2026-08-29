@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -21,15 +22,35 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("aisha@hms.local");
-  const [password, setPassword] = useState("admin123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("hms.remember");
+      if (saved) {
+        const { email, password } = JSON.parse(saved);
+        if (email && password) {
+          setEmail(email);
+          setPassword(password);
+          setRememberMe(true);
+        }
+      }
+    } catch {}
+  }, []);
 
   useEffect(() => { if (user) navigate({ to: "/" }); }, [user, navigate]);
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const r = login(email, password);
+    if (rememberMe) {
+      localStorage.setItem("hms.remember", JSON.stringify({ email, password }));
+    } else {
+      localStorage.removeItem("hms.remember");
+    }
+    const r = await login(email, password);
     if (r.ok) { toast.success("Welcome back"); navigate({ to: "/" }); }
     else toast.error(r.error || "Login failed");
   };
@@ -74,15 +95,23 @@ function LoginPage() {
                   </button>
                 </div>
               </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Checkbox id="remember" checked={rememberMe} onCheckedChange={(c) => setRememberMe(c === true)} />
+                  <label
+                    htmlFor="remember"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Remember me
+                  </label>
+                </div>
+                <a href="#" className="text-sm font-medium text-primary hover:underline">
+                  Forgot password?
+                </a>
+              </div>
               <Button type="submit" className="w-full">Sign in</Button>
             </form>
-            <div className="mt-6 rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground space-y-1">
-              <div className="font-medium text-foreground">Demo accounts</div>
-              <div>Admin — aisha@hms.local / admin123</div>
-              <div>Doctor — ravi@hms.local / doctor123</div>
-              <div>Receptionist — priya@hms.local / recep123</div>
-              <div>Pharmacist — sanjay@hms.local / pharm123</div>
-            </div>
+
           </CardContent>
         </Card>
       </div>

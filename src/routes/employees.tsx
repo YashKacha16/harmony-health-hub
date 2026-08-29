@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Pencil, Plus, Search, Trash2, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
@@ -16,12 +16,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useDB } from "@/lib/useStore";
 import { employeeService } from "@/services/employeeService";
+import { settingsService } from "@/services/settingsService";
 import type { Employee, Role } from "@/lib/store";
 
 export const Route = createFileRoute("/employees")({
   head: () => ({ meta: [{ title: "Employees — MediCore HMS" }, { name: "description", content: "Manage hospital staff, roles, and access." }] }),
   component: () => (
-    <RequireAuth roles={["Admin"]}>
+    <RequireAuth roles={["Admin", "Doctor"]}>
       <AppShell><EmployeesPage /></AppShell>
     </RequireAuth>
   ),
@@ -43,6 +44,12 @@ const emptyDraft = (dept: string): Draft => ({
 
 function EmployeesPage() {
   const db = useDB();
+
+  useEffect(() => {
+    employeeService.list();
+    settingsService.listDepartments();
+  }, []);
+
   const [q, setQ] = useState("");
   const [roleF, setRoleF] = useState<string>("all");
   const [deptF, setDeptF] = useState<string>("all");
@@ -76,6 +83,10 @@ function EmployeesPage() {
       await employeeService.create(rest);
       toast.success("Employee added");
     }
+
+    // Refresh the employee list
+    await employeeService.list();
+
     setOpen(false);
   };
 
@@ -94,17 +105,17 @@ function EmployeesPage() {
             <DialogHeader><DialogTitle>{draft.id ? "Edit" : "New"} employee</DialogTitle></DialogHeader>
             <div className="grid sm:grid-cols-2 gap-4">
               <Field label="Full name"><Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
-              <Field label="Email"><Input type="email" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} /></Field>
+              <Field label="Email"><Input type="email" autoComplete="off" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} /></Field>
               <Field label="Password">
                 <div className="relative">
-                  <Input type={showPw ? "text" : "password"} value={draft.password} onChange={(e) => setDraft({ ...draft, password: e.target.value })} />
+                  <Input type={showPw ? "text" : "password"} autoComplete="new-password" value={draft.password} onChange={(e) => setDraft({ ...draft, password: e.target.value })} />
                   <button type="button" onClick={() => setShowPw((s) => !s)} className="absolute inset-y-0 right-2 grid place-items-center text-muted-foreground">
                     {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </Field>
               <Field label="Confirm password">
-                <Input type={showPw ? "text" : "password"} value={draft.confirm} onChange={(e) => setDraft({ ...draft, confirm: e.target.value })} />
+                <Input type={showPw ? "text" : "password"} autoComplete="new-password" value={draft.confirm} onChange={(e) => setDraft({ ...draft, confirm: e.target.value })} />
               </Field>
               <Field label="Phone"><Input value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} /></Field>
               <Field label="Department">

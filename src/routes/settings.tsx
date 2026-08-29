@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useDB } from "@/lib/useStore";
 import { settingsService } from "@/services/settingsService";
@@ -16,7 +17,7 @@ import { settingsService } from "@/services/settingsService";
 export const Route = createFileRoute("/settings")({
   head: () => ({ meta: [{ title: "Settings — MediCore HMS" }, { name: "description", content: "Configure departments, charges, and medicine categories." }] }),
   component: () => (
-    <RequireAuth roles={["Admin"]}>
+    <RequireAuth roles={["Admin", "Doctor"]}>
       <AppShell><SettingsPage /></AppShell>
     </RequireAuth>
   ),
@@ -37,10 +38,12 @@ function SettingsPage() {
           <TabsTrigger value="departments">Departments</TabsTrigger>
           <TabsTrigger value="charges">Charges</TabsTrigger>
           <TabsTrigger value="categories">Medicine categories</TabsTrigger>
+          <TabsTrigger value="hospital">Hospital Info</TabsTrigger>
         </TabsList>
         <TabsContent value="departments" className="mt-4"><Departments /></TabsContent>
         <TabsContent value="charges" className="mt-4"><Charges /></TabsContent>
         <TabsContent value="categories" className="mt-4"><Categories /></TabsContent>
+        <TabsContent value="hospital" className="mt-4"><HospitalSettings /></TabsContent>
       </Tabs>
     </div>
   );
@@ -49,6 +52,11 @@ function SettingsPage() {
 function Departments() {
   const db = useDB();
   const [name, setName] = useState("");
+
+  useEffect(() => {
+    settingsService.listDepartments();
+  }, []);
+
   const add = async () => { if (!name) return; await settingsService.addDepartment(name); setName(""); toast.success("Department added"); };
   return (
     <Card className="shadow-[var(--shadow-card)]"><CardContent className="p-5 space-y-4">
@@ -74,6 +82,11 @@ function Charges() {
   const db = useDB();
   const [name, setName] = useState("");
   const [amt, setAmt] = useState("");
+  
+  useEffect(() => {
+    settingsService.listCharges();
+  }, []);
+
   const add = async () => { if (!name) return; await settingsService.addCharge(name, Number(amt) || 0); setName(""); setAmt(""); toast.success("Charge added"); };
   return (
     <Card className="shadow-[var(--shadow-card)]"><CardContent className="p-5 space-y-4">
@@ -105,6 +118,11 @@ function Categories() {
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("");
   const [pieces, setPieces] = useState("");
+
+  useEffect(() => {
+    settingsService.listCategories();
+  }, []);
+
   const add = async () => {
     if (!name || !unit) return toast.error("Name and unit required");
     await settingsService.addCategory({ name, unit, piecesPerUnit: pieces ? Number(pieces) : 1 });
@@ -115,7 +133,17 @@ function Categories() {
     <Card className="shadow-[var(--shadow-card)]"><CardContent className="p-5 space-y-4">
       <div className="grid sm:grid-cols-[1fr_1fr_160px_auto] gap-2">
         <div className="space-y-1"><Label className="text-xs">Name</Label><Input placeholder="e.g. Tablet" value={name} onChange={(e) => setName(e.target.value)} /></div>
-        <div className="space-y-1"><Label className="text-xs">Unit</Label><Input placeholder="Strip / Bottle / Piece" value={unit} onChange={(e) => setUnit(e.target.value)} /></div>
+        <div className="space-y-1">
+          <Label className="text-xs">Unit</Label>
+          <Select value={unit} onValueChange={setUnit}>
+            <SelectTrigger><SelectValue placeholder="Select unit" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Strip">Strip</SelectItem>
+              <SelectItem value="Bottle">Bottle</SelectItem>
+              <SelectItem value="Piece">Piece</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div className="space-y-1"><Label className="text-xs">Pieces per unit</Label><Input type="number" placeholder="10" value={pieces} onChange={(e) => setPieces(e.target.value)} /></div>
         <div className="flex items-end"><Button onClick={add}><Plus className="h-4 w-4 mr-1" /> Add</Button></div>
       </div>
@@ -135,5 +163,84 @@ function Categories() {
         </Table>
       </div>
     </CardContent></Card>
+  );
+}
+
+function HospitalSettings() {
+  const db = useDB();
+  const [helpline, setHelpline] = useState(db.hospitalSettings?.helpline || "");
+  const [address, setAddress] = useState(db.hospitalSettings?.address || "");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState(db.hospitalSettings?.logoUrl || "");
+  const [isUploading, setIsUploading] = useState(false);
+
+  const save = async () => {
+    setIsUploading(true);
+    let finalLogoUrl = db.hospitalSettings?.logoUrl || "";
+    try {
+      if (logoFile) {
+        finalLogoUrl = await settingsService.uploadLogo(logoFile);
+      }
+      settingsService.updateHospitalSettings({ helpline, address, logoUrl: finalLogoUrl });
+      toast.success("Hospital settings updated");
+    } catch (err) {
+      toast.error("Failed to save settings");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <Card className="shadow-[var(--shadow-card)]">
+      <CardContent className="p-5 space-y-4 max-w-2xl">
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <Label className="text-sm">Helpline Number(s)</Label>
+            <Input 
+              placeholder="e.g. 93 74 108 108 / 8000 8111" 
+              value={helpline} 
+              onChange={(e) => setHelpline(e.target.value)} 
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-sm">Hospital Address</Label>
+            <Input 
+              placeholder="e.g. Vijardiya, Gujarat" 
+              value={address} 
+              onChange={(e) => setAddress(e.target.value)} 
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-sm">Logo Upload</Label>
+            <Input 
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setLogoFile(file);
+                  setLogoPreview(URL.createObjectURL(file));
+                }
+              }} 
+            />
+            {logoPreview && (
+              <div className="mt-2">
+                <img 
+                  src={logoPreview} 
+                  alt="Logo Preview" 
+                  className="h-16 object-contain"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  onLoad={(e) => { e.currentTarget.style.display = 'block'; }}
+                />
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">This logo will be displayed on printed prescriptions and bills.</p>
+          </div>
+          <Button onClick={save} disabled={isUploading}>
+            {isUploading ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

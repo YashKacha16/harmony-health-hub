@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { store, type Employee, type Role } from "./store";
+import { apiService } from "@/api/apiService";
 
 interface AuthCtx {
   user: Employee | null;
-  login: (email: string, password: string) => { ok: boolean; error?: string };
-  logout: () => void;
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  logout: () => Promise<void>;
   hasRole: (roles: Role[]) => boolean;
 }
 
@@ -21,20 +22,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, []);
 
-  const login = (email: string, password: string) => {
-    const db = store.get();
-    const emp = db.employees.find(
-      (e) => e.email.toLowerCase() === email.toLowerCase() && e.password === password && e.active,
-    );
-    if (!emp) return { ok: false, error: "Invalid credentials or inactive account" };
-    localStorage.setItem(KEY, JSON.stringify(emp));
-    setUser(emp);
-    return { ok: true };
+  const login = async (email: string, password: string) => {
+    try {
+      const emp = await apiService.auth.login(email, password);
+      // Ensure the returned user matches the local Employee type which uses lowercase role 
+      // but Employee uses string, so it should be fine since we parse it out.
+      // We need to cast it since API returns EmployeeBackendDto which is essentially the same structure.
+      const userToStore = emp as unknown as Employee;
+      localStorage.setItem(KEY, JSON.stringify(userToStore));
+      setUser(userToStore);
+      return { ok: true };
+    } catch (err: any) {
+      return { ok: false, error: err.message || "Invalid credentials or inactive account" };
+    }
   };
 
-  const logout = () => {
-    localStorage.removeItem(KEY);
-    setUser(null);
+  const logout = async () => {
+    try {
+      await apiService.auth.logout();
+    } catch (e) {
+      console.error("Logout error", e);
+    } finally {
+      localStorage.removeItem(KEY);
+      setUser(null);
+    }
   };
 
   const hasRole = (roles: Role[]) => !!user && roles.includes(user.role);

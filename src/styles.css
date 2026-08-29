@@ -149,8 +149,69 @@
 }
 
 @media print {
-  body * { visibility: hidden; }
-  .print-area, .print-area * { visibility: visible; }
-  .print-area { position: absolute; left: 0; top: 0; width: 100%; }
-  .no-print { display: none !important; }
+  /* Reset layout for print */
+  html, body {
+    height: auto !important;
+    overflow: initial !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Hide the main app layout wrapper from AppShell */
+  .flex.min-h-screen.w-full.bg-background {
+    display: none !important;
+  }
+
+  /* Hide other non-print layouts */
+  header,
+  nav,
+  aside,
+  footer,
+  .no-print,
+  button:not(.print-button) {
+    display: none !important;
+  }
+
+  /* Ensure Radix Portal is visible and positioned normally */
+  [data-radix-portal] {
+    position: static !important;
+    display: block !important;
+  }
+
+  /* Hide backdrop overlay completely */
+  [data-radix-portal] > div:not([role="dialog"]) {
+    display: none !important;
+  }
+
+  /* Reset Dialog content container to behave like a standard page block */
+  div[role="dialog"] {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    transform: none !important;
+    left: auto !important;
+    top: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+  }
+
+  /* Hide everything inside the dialog except our printable area */
+  div[role="dialog"] > *:not(.print-area) {
+    display: none !important;
+  }
+
+  /* Ensure the print-area itself is visible and occupies full width */
+  .print-area {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    visibility: visible !important;
+  }
 }
