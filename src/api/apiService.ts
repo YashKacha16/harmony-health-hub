@@ -126,6 +126,7 @@ export interface PatientBackendDto {
   pastOperations: PastOperationBackendDto[];
   ward?: string;
   wardNumber?: string;
+  wardHistory?: { ward: string; wardNumber: string; }[];
   relativeName?: string;
   relation?: string;
   relativePhone?: string;
@@ -161,6 +162,7 @@ export interface CreatePatientPayload {
   pastOperations?: PastOperationBackendDto[];
   ward?: string;
   wardNumber?: string;
+  wardHistory?: { ward: string; wardNumber: string; }[];
   relativeName?: string;
   relation?: string;
   relativePhone?: string;
@@ -197,6 +199,7 @@ export interface UpdatePatientPayload {
   pastOperations?: PastOperationBackendDto[];
   ward?: string;
   wardNumber?: string;
+  wardHistory?: { ward: string; wardNumber: string; }[];
   relativeName?: string;
   relation?: string;
   relativePhone?: string;
@@ -434,6 +437,11 @@ export const apiService = {
       return apiClient<PatientBackendDto>(`/patient/${id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status }),
+      });
+    },
+    delete: async (id: number): Promise<void> => {
+      return apiClient<void>(`/patient/${id}`, {
+        method: "DELETE",
       });
     }
   },

@@ -37,8 +37,7 @@ interface Draft {
   hasDeformity: boolean; deformity: string; complaint: string;
   mediclaim: boolean; insuranceCompany: string; policyNumber: string;
   hasPastOps: boolean; pastOperations: PastOperation[];
-  ward?: string;
-  wardNumber?: string;
+  wardHistory: { ward: string; wardNumber: string; }[];
   relativeName?: string;
   relation?: string;
   relativePhone?: string;
@@ -48,6 +47,8 @@ interface Draft {
   occupation?: string;
   religion?: string;
 }
+
+let cachedDraft: Draft | null = null;
 
 function ReceptionPage() {
   const db = useDB();
@@ -69,12 +70,17 @@ function ReceptionPage() {
     hasDeformity: false, deformity: "", complaint: "",
     mediclaim: false, insuranceCompany: "", policyNumber: "",
     hasPastOps: false, pastOperations: [],
-    ward: "", wardNumber: "",
+    wardHistory: [{ ward: "", wardNumber: "" }],
     relativeName: "", relation: "", relativePhone: "", relativeAddress: "",
     maritalStatus: "", child: "", occupation: "", religion: "",
   };
 
-  const [d, setD] = useState<Draft>(initial);
+  const [d, setD] = useState<Draft>(cachedDraft || initial);
+
+  useEffect(() => {
+    cachedDraft = d;
+  }, [d]);
+
   const [receipt, setReceipt] = useState<Patient | null>(null);
   const [consentPatient, setConsentPatient] = useState<Patient | null>(null);
 
@@ -105,8 +111,9 @@ function ReceptionPage() {
       insuranceCompany: d.mediclaim ? d.insuranceCompany : undefined,
       policyNumber: d.mediclaim ? d.policyNumber : undefined,
       pastOperations: d.hasPastOps ? d.pastOperations : undefined,
-      ward: d.type === "IPD" ? d.ward : undefined,
-      wardNumber: d.type === "IPD" ? d.wardNumber : undefined,
+      ward: d.type === "IPD" && d.wardHistory.length > 0 ? d.wardHistory.map(w => w.ward).filter(Boolean).join(" & ") : undefined,
+      wardNumber: d.type === "IPD" && d.wardHistory.length > 0 ? d.wardHistory.map(w => w.wardNumber).filter(Boolean).join(" & ") : undefined,
+      wardHistory: d.type === "IPD" ? d.wardHistory.filter(w => w.ward) : undefined,
       relativeName: d.type === "IPD" ? d.relativeName : undefined,
       relation: d.type === "IPD" ? d.relation : undefined,
       relativePhone: d.type === "IPD" ? d.relativePhone : undefined,
@@ -133,6 +140,18 @@ function ReceptionPage() {
     set("pastOperations", arr);
   };
   const rmOp = (i: number) => set("pastOperations", d.pastOperations.filter((_, idx) => idx !== i));
+
+  const addWard = () => {
+    if (d.wardHistory.length < 2) {
+      set("wardHistory", [...d.wardHistory, { ward: "", wardNumber: "" }]);
+    }
+  };
+  const updWard = (i: number, k: "ward" | "wardNumber", v: string) => {
+    const arr = [...d.wardHistory];
+    arr[i] = { ...arr[i], [k]: v };
+    set("wardHistory", arr);
+  };
+  const rmWard = (i: number) => set("wardHistory", d.wardHistory.filter((_, idx) => idx !== i));
 
   return (
     <div className="space-y-5">
@@ -263,20 +282,35 @@ function ReceptionPage() {
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label="Ward">
-                  <Select value={d.ward} onValueChange={(v) => set("ward", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select ward" /></SelectTrigger>
-                    <SelectContent>
-                      {db.ipdWards?.map((w) => (
-                        <SelectItem key={w.id} value={w.name}>{w.name}</SelectItem>
-                      ))}
-                      {(!db.ipdWards || db.ipdWards.length === 0) && <SelectItem value="__none" disabled>No wards configured</SelectItem>}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                <Field label="Ward Number">
-                  <Input value={d.wardNumber} onChange={(e) => set("wardNumber", e.target.value)} placeholder="e.g. W-12" />
-                </Field>
+              </div>
+              <div className="mt-3 space-y-3">
+                <div className="font-medium text-sm text-muted-foreground mb-2">Wards (Max 2)</div>
+                {d.wardHistory.map((wh, i) => (
+                  <div key={i} className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end rounded-lg border p-3 bg-muted/30">
+                    <Field label="Ward" className="lg:col-span-2">
+                      <Select value={wh.ward} onValueChange={(v) => updWard(i, "ward", v)}>
+                        <SelectTrigger><SelectValue placeholder="Select ward" /></SelectTrigger>
+                        <SelectContent>
+                          {db.ipdWards?.map((w) => (
+                            <SelectItem key={w.id} value={w.name}>{w.name}</SelectItem>
+                          ))}
+                          {(!db.ipdWards || db.ipdWards.length === 0) && <SelectItem value="__none" disabled>No wards configured</SelectItem>}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Ward Number" className="lg:col-span-2">
+                      <Input value={wh.wardNumber} onChange={(e) => updWard(i, "wardNumber", e.target.value)} placeholder="e.g. W-12" />
+                    </Field>
+                    <div className="flex gap-2 h-[36px]">
+                      {d.wardHistory.length > 1 && (
+                        <Button variant="ghost" size="icon" onClick={() => rmWard(i)}><Trash2 className="h-4 w-4" /></Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {d.wardHistory.length < 2 && (
+                  <Button variant="outline" size="sm" onClick={addWard}><Plus className="h-4 w-4 mr-1" /> Add Ward</Button>
+                )}
               </div>
             </Section>
           )}
@@ -406,6 +440,11 @@ function Receipt({ patient }: { patient: Patient }) {
         <Line k="Department" v={patient.department} />
         <Line k="Doctor" v={patient.doctor} />
         <Line k="Visit type" v={patient.type} />
+        {patient.type === "IPD" && (
+          <Line k="Wards" v={patient.wardHistory && patient.wardHistory.length > 0 
+            ? patient.wardHistory.map(w => `${w.ward || 'Unknown'} (${w.wardNumber || 'N/A'})`).join(", ")
+            : patient.ward ? `${patient.ward} (${patient.wardNumber || 'N/A'})` : "None"} />
+        )}
         <Line k="Date" v={new Date(patient.registeredAt).toLocaleString()} />
       </div>
       <div className="flex items-center justify-between border-t pt-3">
@@ -499,6 +538,15 @@ const handlePrintReceipt = (patient: Patient, settings: any) => {
               <div class="info-label">Doctor</div>
               <div class="info-value">${patient.doctor || "-"}</div>
             </div>
+            ${patient.type === "IPD" ? `
+            <div class="info-group">
+              <div class="info-label">Wards</div>
+              <div class="info-value">${patient.wardHistory && patient.wardHistory.length > 0
+                ? patient.wardHistory.map(w => `${w.ward || 'Unknown'} (${w.wardNumber || 'N/A'})`).join(", ")
+                : patient.ward ? `${patient.ward} (${patient.wardNumber || 'N/A'})` : "None"
+              }</div>
+            </div>
+            ` : ''}
           </div>
         </div>
         
@@ -523,22 +571,20 @@ const handlePrintReceipt = (patient: Patient, settings: any) => {
         ${settings?.helpline ? `<div class="footer-helpline">HELP LINE :- ${settings.helpline}</div>` : ''}
         
         <script>
-          window.onload = function() {
+          setTimeout(function() {
             window.print();
-          };
+          }, 250);
         </script>
       </body>
     </html>
   `;
+  printWindow.document.open();
   printWindow.document.write(content);
   printWindow.document.close();
 };
 
-function ConsentFormDialog({ patient, settings, onClose }: { patient: Patient, settings: any, onClose: () => void }) {
-  const [checked, setChecked] = useState<Record<number, boolean>>({});
-
-  const toggle = (i: number) => setChecked(p => ({ ...p, [i]: !p[i] }));
-  const allChecked = Object.keys(checked).length === 7 && Object.values(checked).every(Boolean);
+export function ConsentFormDialog({ patient, settings, onClose, isReprint = false }: { patient: Patient, settings: any, onClose: () => void, isReprint?: boolean }) {
+  const [signed, setSigned] = useState(false);
 
   const printConsent = () => {
     let printIframe = document.getElementById("print-iframe") as HTMLIFrameElement;
@@ -612,7 +658,7 @@ function ConsentFormDialog({ patient, settings, onClose }: { patient: Patient, s
               left: 10%;
               width: 80%;
               height: 40%;
-              background-image: url('${settings.logoUrl && settings.logoUrl !== '/logo.png' ? settings.logoUrl : '/lifecare-logo.jpg'}');
+              background-image: url('${settings?.logoUrl && settings.logoUrl !== '/logo.png' ? settings.logoUrl : '/lifecare-logo.jpg'}');
               background-size: contain;
               background-position: center;
               background-repeat: no-repeat;
@@ -652,11 +698,11 @@ function ConsentFormDialog({ patient, settings, onClose }: { patient: Patient, s
           <div class="watermark"></div>
           <div class="top-section">
             <div class="logo-container">
-              ${settings.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ''}
+              ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ''}
             </div>
             <div class="helpline-circle">
               <span class="helpline-title">Help Line :</span>
-              <span class="helpline-number">${settings.helpline || 'N/A'}</span>
+              <span class="helpline-number">${settings?.helpline || 'N/A'}</span>
             </div>
           </div>
           
@@ -672,6 +718,16 @@ function ConsentFormDialog({ patient, settings, onClose }: { patient: Patient, s
           <div class="info-row">(1) MO NO ,:- <span>${patient.phone}</span> (2) MO NO.:- <span></span></div>
           <div class="info-row">CURRENTLY WITH RELATIVE NAME :- <span>${patient.relativeName || ''}</span></div>
           <div class="info-row">RELATION :- <span>${patient.relation || ''}</span> MO NO OF RELATIVE :- <span>${patient.relativePhone || ''}</span></div>
+          ${(() => {
+            const wards = patient.ward ? patient.ward.split(" & ") : [];
+            const wardNums = patient.wardNumber ? patient.wardNumber.split(" & ") : [];
+            
+            if (wards.length === 0) return '<div class="info-row">WARD :- <span></span> WARD NO :- <span></span></div>';
+            
+            return wards.map((w, i) => 
+              `<div class="info-row">WARD (${i+1}) :- <span>${w}</span> WARD NO (${i+1}) :- <span>${wardNums[i] || ''}</span></div>`
+            ).join("");
+          })()}
           <div class="info-row">PATIENT ADDRESS :- <span>${patient.addressLine || ''}</span></div>
           <div class="info-row">RELATIVE ADDRESS :- <span>${patient.relativeAddress || ''}</span></div>
           
@@ -698,11 +754,11 @@ function ConsentFormDialog({ patient, settings, onClose }: { patient: Patient, s
           
           <div class="top-section">
             <div class="logo-container">
-              ${settings.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ''}
+              ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ''}
             </div>
             <div class="helpline-circle">
               <span class="helpline-title">Help Line :</span>
-              <span class="helpline-number">${settings.helpline || 'N/A'}</span>
+              <span class="helpline-number">${settings?.helpline || 'N/A'}</span>
             </div>
           </div>
           
@@ -753,13 +809,14 @@ function ConsentFormDialog({ patient, settings, onClose }: { patient: Patient, s
           </div>
           
           <script>
-            window.onload = function() {
+            setTimeout(function() {
               window.print();
-            };
+            }, 250);
           </script>
         </body>
       </html>
     `;
+    printWindow.document.open();
     printWindow.document.write(content);
     printWindow.document.close();
   };
@@ -770,45 +827,47 @@ function ConsentFormDialog({ patient, settings, onClose }: { patient: Patient, s
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <FileCheck className="h-6 w-6 text-primary" />
-            Hospital Consent Form
+            {isReprint ? "Print Consent Form" : "Hospital Consent Form"}
           </DialogTitle>
-          <p className="text-sm text-muted-foreground">Please review and confirm all clauses before admitting the patient.</p>
+          <p className="text-sm text-muted-foreground">
+            {isReprint ? "Click the print button below to print a copy of the consent form for this patient." : "Please review and confirm all clauses before admitting the patient."}
+          </p>
         </DialogHeader>
 
-        <div className="space-y-4 py-4 border-y my-2 text-sm">
-          {[
-            "1. The clinician has explained the condition(s) to the patient.",
-            "2. The recommended procedure/intervention/anesthesia has been explained.",
-            "3. The purpose, nature, benefits, risks, and alternatives have been discussed.",
-            "4. The most likely and most serious risks of the procedure(s) have been communicated.",
-            "5. The patient is aware of potential unforeseen risks and authorizes necessary additional procedures.",
-            "6. The patient understands the form and has had all questions answered satisfactorily.",
-            "7. The patient voluntarily consent to the performance of the procedure/intervention/anesthesia.",
-          ].map((clause, i) => (
-            <div key={i} className="flex items-start gap-3 bg-muted/30 p-3 rounded-lg border border-transparent hover:border-border transition-colors">
+        {!isReprint && (
+          <div className="space-y-3 py-4 border-y my-2 text-sm text-muted-foreground">
+            <div className="flex items-center gap-3 bg-muted/50 p-4 rounded-lg border border-border mt-4">
               <Checkbox 
-                id={`clause-${i}`} 
-                checked={checked[i] || false} 
-                onCheckedChange={() => toggle(i)}
-                className="mt-1"
+                id="signed-consent" 
+                checked={signed} 
+                onCheckedChange={(v) => setSigned(!!v)}
               />
-              <Label htmlFor={`clause-${i}`} className="leading-snug cursor-pointer flex-1">
-                {clause}
+              <Label htmlFor="signed-consent" className="leading-snug cursor-pointer flex-1 font-semibold text-foreground">
+                The patient has signed the physical consent form.
               </Label>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
 
         <div className="flex justify-between items-center mt-2">
-          <Button variant="outline" onClick={printConsent}>
-            <Printer className="h-4 w-4 mr-2" /> Print Consent Form
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button onClick={onClose} disabled={!allChecked} className="gap-2">
-              <CheckCircle2 className="h-4 w-4" />
-              Confirm & Admit
+          {!isReprint && (
+            <Button variant="outline" onClick={printConsent}>
+              <Printer className="h-4 w-4 mr-2" /> Print Consent Form
             </Button>
+          )}
+          <div className="flex gap-2 w-full justify-end">
+            <Button variant="ghost" onClick={onClose}>{isReprint ? "Cancel" : "Cancel"}</Button>
+            {isReprint ? (
+              <Button onClick={printConsent} className="gap-2">
+                <Printer className="h-4 w-4" />
+                Print Consent Form
+              </Button>
+            ) : (
+              <Button onClick={onClose} disabled={!signed} className="gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                Confirm & Admit
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

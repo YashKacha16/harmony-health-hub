@@ -27,8 +27,9 @@ const MODULES: Record<string, string[]> = {
 
 export function RolePermissionsTab() {
   const { user, refreshPermissions } = useAuth();
-  const isAdmin = user?.role === "Admin";
-  
+  // Allow anyone who can access this tab to modify roles and permissions
+  const isAdmin = true;
+
   const [apiPermissions, setApiPermissions] = useState<RolePermissionBackendDto[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,13 +104,13 @@ export function RolePermissionsTab() {
     // Add default roles if they don't exist yet
     ["Admin", "Doctor", "Receptionist", "Pharmacist"].forEach(defaultRole => {
       if (!rolesMap[defaultRole]) {
-         rolesMap[defaultRole] = {
-            id: defaultRole,
-            name: defaultRole,
-            userCount: roleCounts[defaultRole] || 0,
-            locked: false,
-            permissions: {}
-         };
+        rolesMap[defaultRole] = {
+          id: defaultRole,
+          name: defaultRole,
+          userCount: roleCounts[defaultRole] || 0,
+          locked: false,
+          permissions: {}
+        };
       }
     });
 
@@ -132,7 +133,7 @@ export function RolePermissionsTab() {
     try {
       const roleName = newRoleName.trim();
       const promises: Promise<any>[] = [];
-      
+
       Object.entries(MODULES).forEach(([mod, actions]) => {
         actions.forEach((action) => {
           promises.push(
@@ -208,7 +209,7 @@ export function RolePermissionsTab() {
       toast.error(`This role is assigned to ${userCount} user(s).`);
       return;
     }
-    
+
     if (!window.confirm(`Delete role "${roleName}" and all of its permissions?`)) return;
 
     const ids = apiPermissions

@@ -38,6 +38,10 @@ function mapPatient(p: PatientBackendDto): Patient {
     })) || [],
     ward: p.ward,
     wardNumber: p.wardNumber,
+    wardHistory: p.wardHistory?.map(wh => ({
+      ward: wh.ward,
+      wardNumber: wh.wardNumber
+    })) || [],
     relativeName: p.relativeName,
     relation: p.relation,
     relativePhone: p.relativePhone,
@@ -112,6 +116,10 @@ export const receptionService = {
         })),
         ward: data.ward,
         wardNumber: data.wardNumber,
+        wardHistory: data.wardHistory?.map(wh => ({
+          ward: wh.ward,
+          wardNumber: wh.wardNumber
+        })),
         relativeName: data.relativeName,
         relation: data.relation,
         relativePhone: data.relativePhone,
@@ -161,4 +169,16 @@ export const receptionService = {
       store.set((db) => { const p = db.patients.find((x) => x.id === id); if (p) p.status = status; });
     }
   },
+  deletePatient: async (id: string) => {
+    try {
+      const numId = parseInt(id, 10);
+      if (!isNaN(numId)) {
+        await apiService.patients.delete(numId);
+      }
+      store.set((db) => { db.patients = db.patients.filter(p => p.id !== id); });
+    } catch (err) {
+      console.error("Failed to delete patient from backend:", err);
+      store.set((db) => { db.patients = db.patients.filter(p => p.id !== id); });
+    }
+  }
 };

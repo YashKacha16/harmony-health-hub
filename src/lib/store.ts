@@ -59,6 +59,7 @@ export interface Patient {
   pastOperations?: PastOperation[];
   ward?: string;
   wardNumber?: string;
+  wardHistory?: { ward: string; wardNumber: string; }[];
   relativeName?: string;
   relation?: string;
   relativePhone?: string;

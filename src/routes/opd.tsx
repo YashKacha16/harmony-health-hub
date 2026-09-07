@@ -11,9 +11,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { useDB } from "@/lib/useStore";
 import { opdService } from "@/services/opdService";
 import { medicalService } from "@/services/medicalService";
@@ -106,6 +108,13 @@ function MedicineAutocomplete({ value, selectedName, onSelect }: { value: string
 function OPDPage() {
   const db = useDB();
   const [q, setQ] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [q]);
+
   const [active, setActive] = useState<Patient | null>(null);
   const [diagnosis, setDiagnosis] = useState("");
   const [disease, setDisease] = useState("");
@@ -125,6 +134,21 @@ function OPDPage() {
       .filter((p) => !q || p.code.toLowerCase().includes(q.toLowerCase()) || p.name.toLowerCase().includes(q.toLowerCase()))
       .sort((a, b) => b.registeredAt.localeCompare(a.registeredAt));
   }, [db.patients, q]);
+
+  const totalPages = Math.ceil(opdPatients.length / itemsPerPage);
+  const paginatedPatients = useMemo(() => {
+    return opdPatients.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [opdPatients, currentPage]);
+
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const confirmDelete = async () => {
+    if (deleteId) {
+      await receptionService.deletePatient(deleteId);
+      toast.success("Patient deleted");
+      setDeleteId(null);
+    }
+  };
 
   const openPrescribe = (p: Patient) => {
     setActive(p);
@@ -532,10 +556,10 @@ function OPDPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {opdPatients.length === 0 && (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No patients yet — register from Reception.</TableCell></TableRow>
+                {paginatedPatients.length === 0 && (
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-8">No patients found.</TableCell></TableRow>
                 )}
-                {opdPatients.map((p) => (
+                {paginatedPatients.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-mono text-xs">{p.code}</TableCell>
                     <TableCell className="font-medium">{p.name}</TableCell>
@@ -554,12 +578,39 @@ function OPDPage() {
                           <Stethoscope className="h-4 w-4 mr-1" /> Prescribe
                         </Button>
                       )}
+                      <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} className="ml-2 text-red-500 hover:text-red-700 hover:bg-red-50">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
+          
+          {totalPages > 1 && (
+            <div className="pt-4">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"} 
+                    />
+                  </PaginationItem>
+                  <PaginationItem>
+                    <span className="text-sm text-muted-foreground mx-4">Page {currentPage} of {totalPages}</span>
+                  </PaginationItem>
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -674,6 +725,20 @@ function OPDPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <AlertDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the patient and all associated records.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-red-500 hover:bg-red-600 text-white">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
