@@ -6,7 +6,7 @@ const mapBackendEmployee = (e: EmployeeBackendDto): Employee => ({
   code: e.code,
   name: e.name,
   email: e.email,
-  password: e.password,
+  password: "",
   phone: e.phone,
   department: e.department,
   role: e.role as Employee["role"],

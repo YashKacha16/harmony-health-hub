@@ -424,8 +424,10 @@ export const apiService = {
     getByCode: async (code: string): Promise<PatientBackendDto> => {
       return apiClient<PatientBackendDto>(`/patient/code/${code}`);
     },
-    search: async (q: string): Promise<PatientBackendDto[]> => {
-      return apiClient<PatientBackendDto[]>(`/patient/search?q=${encodeURIComponent(q)}`);
+    search: async (q: string, prescribedOnly: boolean = false): Promise<PatientBackendDto[]> => {
+      let url = `/patient/search?q=${encodeURIComponent(q)}`;
+      if (prescribedOnly) url += `&prescribedOnly=true`;
+      return apiClient<PatientBackendDto[]>(url);
     },
     create: async (payload: CreatePatientPayload): Promise<PatientBackendDto> => {
       return apiClient<PatientBackendDto>("/patient", {

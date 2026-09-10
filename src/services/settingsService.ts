@@ -219,7 +219,7 @@ export const settingsService = {
   },
 
   // Hospital Settings
-  updateHospitalSettings: (data: Partial<{ helpline: string; address: string; logoUrl: string }>) => {
+  updateHospitalSettings: (data: Partial<{ helpline: string; address: string; logoUrl: string; followUpValidityMonths: number }>) => {
     store.set((db) => {
       db.hospitalSettings = { ...db.hospitalSettings, ...data };
     });

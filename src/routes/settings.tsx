@@ -175,6 +175,7 @@ function HospitalSettings() {
   const db = useDB();
   const [helpline, setHelpline] = useState(db.hospitalSettings?.helpline || "");
   const [address, setAddress] = useState(db.hospitalSettings?.address || "");
+  const [followUpValidityMonths, setFollowUpValidityMonths] = useState(db.hospitalSettings?.followUpValidityMonths?.toString() || "3");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState(db.hospitalSettings?.logoUrl || "");
   const [isUploading, setIsUploading] = useState(false);
@@ -186,7 +187,7 @@ function HospitalSettings() {
       if (logoFile) {
         finalLogoUrl = await settingsService.uploadLogo(logoFile);
       }
-      settingsService.updateHospitalSettings({ helpline, address, logoUrl: finalLogoUrl });
+      settingsService.updateHospitalSettings({ helpline, address, logoUrl: finalLogoUrl, followUpValidityMonths: Number(followUpValidityMonths) || 3 });
       toast.success("Hospital settings updated successfully.");
     } catch (err) {
       toast.error("Failed to save settings");
@@ -214,6 +215,16 @@ function HospitalSettings() {
               value={address} 
               onChange={(e) => setAddress(e.target.value)} 
             />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-sm">Follow-up Validity (Months)</Label>
+            <Input 
+              type="number"
+              placeholder="e.g. 3" 
+              value={followUpValidityMonths} 
+              onChange={(e) => setFollowUpValidityMonths(e.target.value)} 
+            />
+            <p className="text-xs text-muted-foreground mt-1">Number of months after visit that a patient is eligible for follow-up.</p>
           </div>
           <div className="space-y-1">
             <Label className="text-sm">Logo Upload</Label>

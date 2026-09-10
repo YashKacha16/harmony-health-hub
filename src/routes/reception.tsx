@@ -31,7 +31,7 @@ interface Draft {
   name: string; phone: string; age: string; gender: "Male" | "Female" | "Other";
   weight: string; height: string; caste: string;
   addressLine: string; state: string; city: string; pincode: string;
-  type: "OPD" | "IPD";
+  type: "OPD" | "IPD" | "FollowUp";
   department: string; doctor: string; opdCharge: string;
   hasAllergy: boolean; allergy: string; 
   hasDeformity: boolean; deformity: string; complaint: string;
@@ -83,6 +83,10 @@ function ReceptionPage() {
 
   const [receipt, setReceipt] = useState<Patient | null>(null);
   const [consentPatient, setConsentPatient] = useState<Patient | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Patient[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
 
   const doctors = useMemo(
     () => db.employees.filter((e) => e.department === d.department && e.active),
@@ -101,7 +105,7 @@ function ReceptionPage() {
       height: d.height ? Number(d.height) : undefined,
       caste: d.caste || undefined,
       addressLine: d.addressLine, state: d.state, city: d.city, pincode: d.pincode,
-      type: d.type,
+      type: d.type === "FollowUp" ? "OPD" : d.type,
       department: d.department, doctor: d.doctor,
       opdCharge: Number(d.opdCharge) || 0,
       allergy: d.hasAllergy ? d.allergy : undefined,
@@ -111,8 +115,8 @@ function ReceptionPage() {
       insuranceCompany: d.mediclaim ? d.insuranceCompany : undefined,
       policyNumber: d.mediclaim ? d.policyNumber : undefined,
       pastOperations: d.hasPastOps ? d.pastOperations : undefined,
-      ward: d.type === "IPD" && d.wardHistory.length > 0 ? d.wardHistory.map(w => w.ward).filter(Boolean).join(" & ") : undefined,
-      wardNumber: d.type === "IPD" && d.wardHistory.length > 0 ? d.wardHistory.map(w => w.wardNumber).filter(Boolean).join(" & ") : undefined,
+      ward: (d.type === "IPD" && d.wardHistory.length > 0) ? d.wardHistory.map(w => w.ward).filter(Boolean).join(" & ") : undefined,
+      wardNumber: (d.type === "IPD" && d.wardHistory.length > 0) ? d.wardHistory.map(w => w.wardNumber).filter(Boolean).join(" & ") : undefined,
       wardHistory: d.type === "IPD" ? d.wardHistory.filter(w => w.ward) : undefined,
       relativeName: d.type === "IPD" ? d.relativeName : undefined,
       relation: d.type === "IPD" ? d.relation : undefined,
@@ -131,6 +135,76 @@ function ReceptionPage() {
       toast.success(`Registered — ${patient.code}`);
     }
     setD({ ...initial, department: d.department });
+    setSearchQuery("");
+    setSearchResults([]);
+  };
+
+  useEffect(() => {
+    if (!searchQuery) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const results = await receptionService.searchPatient(searchQuery, true);
+        setSearchResults(results);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const selectFollowUpPatient = async (p: Patient) => {
+    try {
+      // Refresh patient to get full details including past operations if needed
+      const fullPatient = await receptionService.findByCode(p.code);
+      const patientData = fullPatient || p;
+      
+      const validityMonths = db.hospitalSettings?.followUpValidityMonths || 3;
+      const registeredDate = new Date(patientData.registeredAt);
+      const validityDate = new Date(registeredDate);
+      validityDate.setMonth(validityDate.getMonth() + validityMonths);
+      
+      if (new Date() > validityDate) {
+        return toast.error(`Follow-up validity period (${validityMonths} months) has expired for this patient.`);
+      }
+
+      setD({
+        ...initial,
+        type: "FollowUp",
+        name: patientData.name,
+        phone: patientData.phone,
+        age: String(patientData.age),
+        gender: patientData.gender as any,
+        weight: patientData.weight ? String(patientData.weight) : "",
+        height: patientData.height ? String(patientData.height) : "",
+        caste: patientData.caste || "",
+        addressLine: patientData.addressLine,
+        state: patientData.state,
+        city: patientData.city,
+        pincode: patientData.pincode || "",
+        department: patientData.department || db.departments[0]?.name || "",
+        doctor: patientData.doctor || "",
+        hasAllergy: !!patientData.allergy,
+        allergy: patientData.allergy || "",
+        hasDeformity: !!patientData.deformity,
+        deformity: patientData.deformity || "",
+        mediclaim: !!patientData.mediclaim,
+        insuranceCompany: patientData.insuranceCompany || "",
+        policyNumber: patientData.policyNumber || "",
+        hasPastOps: !!(patientData.pastOperations && patientData.pastOperations.length > 0),
+        pastOperations: patientData.pastOperations || [],
+      });
+      toast.success("Patient details loaded for follow-up.");
+      setShowResults(false);
+      setSearchQuery("");
+    } catch (err) {
+      toast.error("Error loading patient details.");
+    }
   };
 
   const addOp = () => set("pastOperations", [...d.pastOperations, { type: "", bodyPart: "", place: "", deformity: "" }]);
@@ -162,14 +236,59 @@ function ReceptionPage() {
         </div>
       </div>
 
-      <Tabs value={d.type} onValueChange={(v) => set("type", v as "OPD" | "IPD")}>
+      <Tabs value={d.type} onValueChange={(v) => {
+        set("type", v as "OPD" | "IPD" | "FollowUp");
+        if (v !== "FollowUp") {
+          setSearchQuery("");
+          setSearchResults([]);
+        }
+      }}>
         <TabsList className="mb-4">
           <TabsTrigger value="OPD">OPD Registration</TabsTrigger>
           <TabsTrigger value="IPD">IPD Registration</TabsTrigger>
+          <TabsTrigger value="FollowUp">Follow-up Registration</TabsTrigger>
         </TabsList>
 
         <Card>
           <CardContent className="p-6 space-y-8">
+            {d.type === "FollowUp" && (
+              <Section title="Search Patient">
+                <div className="relative max-w-sm">
+                  <Input 
+                    placeholder="Search by name or code..." 
+                    value={searchQuery} 
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setShowResults(true);
+                    }}
+                    onFocus={() => setShowResults(true)}
+                  />
+                  {showResults && searchQuery && (
+                    <div className="absolute z-10 w-full mt-1 bg-popover text-popover-foreground rounded-md border shadow-md overflow-hidden">
+                      {isSearching ? (
+                        <div className="p-3 text-sm text-center text-muted-foreground">Searching...</div>
+                      ) : searchResults.length > 0 ? (
+                        <div className="max-h-60 overflow-auto">
+                          {searchResults.map((p) => (
+                            <div 
+                              key={p.id} 
+                              className="px-3 py-2 cursor-pointer hover:bg-muted text-sm border-b last:border-0"
+                              onClick={() => selectFollowUpPatient(p)}
+                            >
+                              <div className="font-medium">{p.name}</div>
+                              <div className="text-xs text-muted-foreground">{p.code} • {p.phone}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-3 text-sm text-center text-muted-foreground">No patients found.</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </Section>
+            )}
+
             <Section title="Personal details">
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <Field label="Patient name *"><Input value={d.name} onChange={(e) => set("name", e.target.value)} /></Field>
@@ -227,7 +346,7 @@ function ReceptionPage() {
             </div>
           </Section>
 
-          {d.type === "OPD" && (
+          {(d.type === "OPD" || d.type === "FollowUp") && (
             <Section title="OPD details">
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <Field label="Department">

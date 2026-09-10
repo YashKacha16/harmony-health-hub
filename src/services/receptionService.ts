@@ -65,9 +65,9 @@ export const receptionService = {
       return store.get().patients;
     }
   },
-  searchPatient: async (q: string): Promise<Patient[]> => {
+  searchPatient: async (q: string, prescribedOnly: boolean = false): Promise<Patient[]> => {
     try {
-      const data = await apiService.patients.search(q);
+      const data = await apiService.patients.search(q, prescribedOnly);
       return data.map(mapPatient);
     } catch (err) {
       console.error("Failed to search patients from backend:", err);

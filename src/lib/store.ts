@@ -25,6 +25,7 @@ export interface HospitalSettings {
   helpline: string;
   address: string;
   logoUrl: string;
+  followUpValidityMonths: number;
 }
 
 export interface PastOperation { type: string; bodyPart: string; place: string; deformity: string; }
@@ -177,7 +178,7 @@ const seed = (): DB => ({
   ],
   bills: [],
   seq: { employee: 4, patient: 0 },
-  hospitalSettings: { helpline: "93 74 108 108 / 8000 8111", address: "Vijardiya", logoUrl: "" },
+  hospitalSettings: { helpline: "93 74 108 108 / 8000 8111", address: "Vijardiya", logoUrl: "", followUpValidityMonths: 3 },
 });
 
 let cache: DB | null = null;
@@ -200,7 +201,8 @@ function load(): DB {
       cache.hospitalSettings = { 
         helpline: "93 74 108 108 / 8000 8111", 
         address: "Vijardiya", 
-        logoUrl: "/logo.jpg" 
+        logoUrl: "/logo.jpg",
+        followUpValidityMonths: 3
       };
     }
     if (!cache.ipdWards) {
