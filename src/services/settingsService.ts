@@ -68,7 +68,7 @@ export const settingsService = {
   listCharges: async (): Promise<Charge[]> => {
     try {
       const data = await apiService.charges.getAll();
-      const mapped = data.map((c) => ({ id: c.id.toString(), name: c.name, amount: c.amount }));
+      const mapped = data.map((c) => ({ id: c.id.toString(), name: c.name, amount: c.amount, category: c.category }));
       store.set((db) => {
         db.charges = mapped;
       });
@@ -78,22 +78,22 @@ export const settingsService = {
       return store.get().charges;
     }
   },
-  addCharge: async (name: string, amount: number) => {
+  addCharge: async (name: string, amount: number, category: string = "Hospital Bill") => {
     try {
-      const newCharge = await apiService.charges.create({ name, amount });
+      const newCharge = await apiService.charges.create({ name, amount, category });
       store.set((db) => {
-        db.charges.push({ id: newCharge.id.toString(), name: newCharge.name, amount: newCharge.amount });
+        db.charges.push({ id: newCharge.id.toString(), name: newCharge.name, amount: newCharge.amount, category: newCharge.category });
       });
     } catch (err) {
       console.error("Failed to add charge to backend, updating local store only:", err);
-      store.set((db) => { db.charges.push({ id: uid(), name, amount }); });
+      store.set((db) => { db.charges.push({ id: uid(), name, amount, category }); });
     }
   },
   updateCharge: async (id: string, data: Partial<Charge>) => {
     try {
       const numId = parseInt(id, 10);
       if (!isNaN(numId)) {
-        await apiService.charges.update(numId, { name: data.name, amount: data.amount });
+        await apiService.charges.update(numId, { name: data.name, amount: data.amount, category: data.category });
       }
       store.set((db) => { const c = db.charges.find((x) => x.id === id); if (c) Object.assign(c, data); });
     } catch (err) {
@@ -219,7 +219,16 @@ export const settingsService = {
   },
 
   // Hospital Settings
-  updateHospitalSettings: (data: Partial<{ helpline: string; address: string; logoUrl: string; followUpValidityMonths: number }>) => {
+  updateHospitalSettings: (data: Partial<{ 
+    helpline: string; 
+    address: string; 
+    logoUrl: string; 
+    followUpValidityMonths: number;
+    bankAccountName: string;
+    bankAccountNumber: string;
+    bankName: string;
+    bankIfscCode: string;
+  }>) => {
     store.set((db) => {
       db.hospitalSettings = { ...db.hospitalSettings, ...data };
     });
@@ -227,7 +236,7 @@ export const settingsService = {
   uploadLogo: async (file: File) => {
     try {
       const res = await apiService.hospitalSettings.uploadLogo(file);
-      const fullUrl = `http://localhost:5037${res.logoUrl}`;
+      const fullUrl = `https://subsector-harvest-juicy.ngrok-free.dev${res.logoUrl}`;
       store.set((db) => {
         if (db.hospitalSettings) {
           db.hospitalSettings.logoUrl = fullUrl;

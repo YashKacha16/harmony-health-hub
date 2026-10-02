@@ -7,7 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { FileText, Printer, Plus, Trash2 } from "lucide-react";
 import type { Patient, Medicine } from "@/lib/store";
 import { useDB } from "@/lib/useStore";
+import { apiService } from "@/api/apiService";
 import { medicalService } from "@/services/medicalService";
+import { format } from "date-fns";
+import { toast } from "sonner";
 
 function MedicineSearchInput({
   value,
@@ -20,6 +23,7 @@ function MedicineSearchInput({
   const [q, setQ] = useState(value || "");
   const [results, setResults] = useState<Medicine[]>([]);
   const [open, setOpen] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
 
   useEffect(() => {
     setQ(value || "");
@@ -30,10 +34,12 @@ function MedicineSearchInput({
       const timer = setTimeout(async () => {
         const res = await medicalService.searchMedicine(q.trim());
         setResults(res);
+        setSelectedIndex(-1);
       }, 300);
       return () => clearTimeout(timer);
     } else {
       setResults([]);
+      setSelectedIndex(-1);
     }
   }, [q, open]);
 
@@ -58,6 +64,28 @@ function MedicineSearchInput({
     setOpen(false);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!open || results.length === 0) return;
+    
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev < results.length - 1 ? prev + 1 : prev));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < results.length) {
+        handleSelectMedicine(results[selectedIndex]);
+      } else if (results.length > 0) {
+        // Fallback to first if none selected
+        handleSelectMedicine(results[0]);
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  };
+
   return (
     <div className="relative flex-1">
       <Input
@@ -69,17 +97,18 @@ function MedicineSearchInput({
         }}
         onFocus={() => setOpen(true)}
         onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
         placeholder="Search medicine (e.g. Paracetamol)..."
         className="h-8 text-xs w-full"
       />
       {open && results.length > 0 && (
         <div className="absolute top-full left-0 mt-1 min-w-[240px] w-full bg-popover text-popover-foreground rounded-md border shadow-xl z-[9999] overflow-hidden max-h-48 overflow-y-auto">
-          {results.map((m) => {
+          {results.map((m, idx) => {
             const catName = db.categories.find((c) => c.id === m.categoryId)?.name || "";
             return (
               <div
                 key={m.id}
-                className="px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground cursor-pointer flex justify-between items-center border-b last:border-0"
+                className={`px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground cursor-pointer flex justify-between items-center border-b last:border-0 ${selectedIndex === idx ? "bg-accent text-accent-foreground" : ""}`}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   handleSelectMedicine(m);
@@ -103,9 +132,11 @@ interface NursingChartDialogProps {
   patient: Patient;
   settings: any;
   onClose: () => void;
+  onSave?: () => void;
+  initialDate?: string;
 }
 
-export function NursingChartDialog({ patient, settings, onClose }: NursingChartDialogProps) {
+export function NursingChartDialog({ patient, settings, onClose, onSave, initialDate }: NursingChartDialogProps) {
   const db = useDB();
   const [intervalHours, setIntervalHours] = useState<string>("2");
 
@@ -121,35 +152,121 @@ export function NursingChartDialog({ patient, settings, onClose }: NursingChartD
   const [noteText, setNoteText] = useState("");
   const [investigationText, setInvestigationText] = useState("");
 
+  const [charts, setCharts] = useState<any[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
-    // Pre-fill existing prescription if found
-    const rx = (db?.prescriptions || []).find((p: any) => p.patientId === patient.id);
-    if (rx) {
-      if (rx.medicines && rx.medicines.length > 0) {
-        setMedRows(
-          rx.medicines.map((m: any) => {
-            const lowerName = (m.name || "").toLowerCase();
-            const isSyr = lowerName.includes("syrup") || lowerName.includes("syr") || lowerName.includes("ml");
-            const parseVal = (val: any) => {
-              if (val === true || val === "true" || val === "1" || val === "✓") return isSyr ? "" : true;
-              if (val === false || val === "false" || val === "0" || !val) return isSyr ? "" : false;
-              return val;
-            };
-            return {
-              name: m.name || "",
-              isSyrup: isSyr,
-              morning: parseVal(m.morning),
-              afternoon: parseVal(m.afternoon),
-              evening: parseVal(m.evening),
-              night: parseVal(m.night),
-            };
-          })
-        );
+    // Fetch existing charts
+    apiService.nursingCharts.getByPatientId(patient.id).then((data) => {
+      setCharts(data);
+      if (initialDate && initialDate !== "new") {
+        setSelectedDate(initialDate);
+        const chart = data.find(c => c.date === initialDate);
+        if (chart) loadChartData(chart);
+        else clearFields();
+      } else {
+        const today = format(new Date(), "yyyy-MM-dd");
+        setSelectedDate(today);
+        clearFields();
       }
-      setNoteText(rx.suggestion || "");
-      setInvestigationText(rx.diagnosis || "");
+    }).catch(err => {
+      console.error("Failed to load charts", err);
+      const today = format(new Date(), "yyyy-MM-dd");
+      setSelectedDate(today);
+      clearFields();
+    });
+  }, [patient.id, initialDate]);
+
+  const clearFields = () => {
+    setMedRows([]);
+    setNoteText("");
+    setInvestigationText("");
+    setIntervalHours("2");
+  };
+
+  const loadChartData = (chart: any) => {
+    setIntervalHours(chart.vitalsIntervalHours.toString());
+    setNoteText(chart.notes || "");
+    setInvestigationText(chart.investigations || "");
+    if (chart.medications) {
+      setMedRows(chart.medications.map((m: any) => {
+        const parseVal = (val: any) => {
+           if (val === "true") return true;
+           if (val === "false" || val === null) return false;
+           return val;
+        };
+        return {
+          name: m.name,
+          isSyrup: m.isSyrup,
+          morning: m.isSyrup ? m.morning : parseVal(m.morning),
+          afternoon: m.isSyrup ? m.afternoon : parseVal(m.afternoon),
+          evening: m.isSyrup ? m.evening : parseVal(m.evening),
+          night: m.isSyrup ? m.night : parseVal(m.night),
+        };
+      }));
+    } else {
+      setMedRows([]);
     }
-  }, [db?.prescriptions, patient.id]);
+  };
+
+  const handleDateChange = (val: string) => {
+    if (val === "new") {
+      const today = format(new Date(), "yyyy-MM-dd");
+      setSelectedDate(today);
+      clearFields();
+    } else {
+      setSelectedDate(val);
+      const chart = charts.find(c => c.date === val);
+      if (chart) {
+        loadChartData(chart);
+      }
+    }
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const payload = {
+        patientId: patient.id,
+        date: selectedDate,
+        vitalsIntervalHours: parseInt(intervalHours, 10),
+        notes: noteText,
+        investigations: investigationText,
+        medications: medRows.map(m => ({
+          name: m.name,
+          isSyrup: m.isSyrup,
+          morning: m.isSyrup ? m.morning : (m.morning ? "true" : "false"),
+          afternoon: m.isSyrup ? m.afternoon : (m.afternoon ? "true" : "false"),
+          evening: m.isSyrup ? m.evening : (m.evening ? "true" : "false"),
+          night: m.isSyrup ? m.night : (m.night ? "true" : "false"),
+        }))
+      };
+      
+      const saved = await apiService.nursingCharts.save(payload);
+      toast.success("Nursing chart saved successfully");
+      
+      // Update charts list
+      setCharts(prev => {
+        const existing = prev.findIndex(c => c.date === saved.date);
+        if (existing >= 0) {
+          const updated = [...prev];
+          updated[existing] = saved;
+          return updated;
+        }
+        return [saved, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      });
+      
+      if (onSave) {
+        onSave();
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to save nursing chart");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const addMedRow = () => {
     setMedRows((prev) => [...prev, { name: "", isSyrup: false, morning: false, afternoon: false, evening: false, night: false }]);
@@ -644,9 +761,29 @@ export function NursingChartDialog({ patient, settings, onClose }: NursingChartD
     <Dialog open={true} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl font-bold">
-            <FileText className="h-6 w-6 text-primary" />
-            Print Nursing / Vitals Chart — {patient.name}
+          <DialogTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xl font-bold">
+              <FileText className="h-6 w-6 text-primary" />
+              Nursing / Vitals Chart — {patient.name}
+            </div>
+            <div className="flex items-center gap-2 mr-6">
+              <Label className="text-sm">Select Date:</Label>
+              <Select value={selectedDate} onValueChange={handleDateChange}>
+                <SelectTrigger className="w-40 h-8">
+                  <SelectValue placeholder="Date" />
+                </SelectTrigger>
+                <SelectContent>
+                  {charts.map(c => (
+                    <SelectItem key={c.date} value={c.date}>
+                      {c.date} {c.date === format(new Date(), "yyyy-MM-dd") ? "(Today)" : ""}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="new" className="text-primary font-semibold border-t">
+                    + New Chart
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
@@ -776,9 +913,12 @@ export function NursingChartDialog({ patient, settings, onClose }: NursingChartD
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handlePrint} className="gap-2 px-5">
+          <Button variant="secondary" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save Chart"}
+          </Button>
+          <Button onClick={async () => { await handleSave(); handlePrint(); }} className="gap-2 px-5">
             <Printer className="h-4 w-4" />
-            Print Chart
+            Save & Print
           </Button>
         </DialogFooter>
       </DialogContent>

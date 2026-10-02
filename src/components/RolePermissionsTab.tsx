@@ -66,7 +66,8 @@ export function RolePermissionsTab() {
   const roles = useMemo(() => {
     const rolesMap: Record<string, any> = {};
 
-    apiPermissions.forEach((p) => {
+    const safePerms = Array.isArray(apiPermissions) ? apiPermissions : [];
+    safePerms.forEach((p) => {
       const name = p.roleName;
       if (!name) return;
       if (!rolesMap[name]) {
@@ -88,7 +89,8 @@ export function RolePermissionsTab() {
     });
 
     const roleCounts: Record<string, number> = {};
-    employees.forEach((emp) => {
+    const safeEmp = Array.isArray(employees) ? employees : [];
+    safeEmp.forEach((emp) => {
       const role = emp.role;
       if (role) {
         roleCounts[role] = (roleCounts[role] || 0) + 1;

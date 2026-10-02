@@ -87,27 +87,50 @@ function Charges() {
   const db = useDB();
   const [name, setName] = useState("");
   const [amt, setAmt] = useState("");
+  const [category, setCategory] = useState("Hospital Bill");
   
   useEffect(() => {
     settingsService.listCharges();
   }, []);
 
-  const add = async () => { if (!name) return; await settingsService.addCharge(name, Number(amt) || 0); setName(""); setAmt(""); toast.success("Charge added"); };
+  const add = async () => { if (!name) return; await settingsService.addCharge(name, Number(amt) || 0, category); setName(""); setAmt(""); setCategory("Hospital Bill"); toast.success("Charge added"); };
   return (
     <Card className="shadow-[var(--shadow-card)]"><CardContent className="p-5 space-y-4">
-      <div className="grid sm:grid-cols-[1fr_180px_auto] gap-2">
+      <div className="grid sm:grid-cols-[1fr_180px_180px_auto] gap-2">
         <Input placeholder="Charge name (e.g. OPD Charge)" value={name} onChange={(e) => setName(e.target.value)} />
         <Input placeholder="Amount" type="number" value={amt} onChange={(e) => setAmt(e.target.value)} />
+        <Select value={category} onValueChange={setCategory}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Hospital Bill">Hospital Bill</SelectItem>
+            <SelectItem value="Lab Bill">Lab Bill</SelectItem>
+            <SelectItem value="Other">Other</SelectItem>
+          </SelectContent>
+        </Select>
         <Button onClick={add}><Plus className="h-4 w-4 mr-1" /> Add</Button>
       </div>
       <div className="rounded-lg border">
         <Table>
-          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Amount</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Amount</TableHead><TableHead>Category</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
           <TableBody>
             {db.charges.map((c) => (
               <TableRow key={c.id}>
                 <TableCell><Input defaultValue={c.name} onBlur={(e) => settingsService.updateCharge(c.id, { name: e.target.value })} /></TableCell>
                 <TableCell><Input type="number" defaultValue={c.amount} onBlur={(e) => settingsService.updateCharge(c.id, { amount: Number(e.target.value) || 0 })} /></TableCell>
+                <TableCell>
+                  <Select defaultValue={c.category || "Hospital Bill"} onValueChange={(val) => settingsService.updateCharge(c.id, { category: val })}>
+                    <SelectTrigger className="border-0 bg-transparent h-8 shadow-none focus:ring-0">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Hospital Bill">Hospital Bill</SelectItem>
+                      <SelectItem value="Lab Bill">Lab Bill</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </TableCell>
                 <TableCell className="text-right"><Button variant="ghost" size="icon" onClick={async () => { await settingsService.removeCharge(c.id); toast.success("Removed"); }}><Trash2 className="h-4 w-4" /></Button></TableCell>
               </TableRow>
             ))}
@@ -179,6 +202,11 @@ function HospitalSettings() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState(db.hospitalSettings?.logoUrl || "");
   const [isUploading, setIsUploading] = useState(false);
+  
+  const [bankAccountName, setBankAccountName] = useState(db.hospitalSettings?.bankAccountName || "");
+  const [bankAccountNumber, setBankAccountNumber] = useState(db.hospitalSettings?.bankAccountNumber || "");
+  const [bankName, setBankName] = useState(db.hospitalSettings?.bankName || "");
+  const [bankIfscCode, setBankIfscCode] = useState(db.hospitalSettings?.bankIfscCode || "");
 
   const handleSave = async () => {
     setIsUploading(true);
@@ -187,7 +215,16 @@ function HospitalSettings() {
       if (logoFile) {
         finalLogoUrl = await settingsService.uploadLogo(logoFile);
       }
-      settingsService.updateHospitalSettings({ helpline, address, logoUrl: finalLogoUrl, followUpValidityMonths: Number(followUpValidityMonths) || 3 });
+      settingsService.updateHospitalSettings({ 
+        helpline, 
+        address, 
+        logoUrl: finalLogoUrl, 
+        followUpValidityMonths: Number(followUpValidityMonths) || 3,
+        bankAccountName,
+        bankAccountNumber,
+        bankName,
+        bankIfscCode
+      });
       toast.success("Hospital settings updated successfully.");
     } catch (err) {
       toast.error("Failed to save settings");
@@ -226,7 +263,46 @@ function HospitalSettings() {
             />
             <p className="text-xs text-muted-foreground mt-1">Number of months after visit that a patient is eligible for follow-up.</p>
           </div>
-          <div className="space-y-1">
+          
+          <div className="pt-4 border-t space-y-4">
+            <h3 className="font-semibold text-sm text-primary">Bank Details (For Invoices/Receipts)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label className="text-sm">Account Name</Label>
+                <Input 
+                  placeholder="e.g. Shyam Rajani" 
+                  value={bankAccountName} 
+                  onChange={(e) => setBankAccountName(e.target.value)} 
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Account Number</Label>
+                <Input 
+                  placeholder="e.g. 20444583179" 
+                  value={bankAccountNumber} 
+                  onChange={(e) => setBankAccountNumber(e.target.value)} 
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">Bank Name</Label>
+                <Input 
+                  placeholder="e.g. SBI BANK" 
+                  value={bankName} 
+                  onChange={(e) => setBankName(e.target.value)} 
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-sm">IFSC Code</Label>
+                <Input 
+                  placeholder="e.g. SBIN0000463" 
+                  value={bankIfscCode} 
+                  onChange={(e) => setBankIfscCode(e.target.value)} 
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div className="pt-4 border-t space-y-1">
             <Label className="text-sm">Logo Upload</Label>
             <Input 
               type="file"

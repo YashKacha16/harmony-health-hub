@@ -346,8 +346,8 @@ function DispenseTab() {
                       className={`px-3 py-2 text-sm hover:bg-muted cursor-pointer transition-colors ${
                         idx === activeIndex ? "bg-muted font-medium" : ""
                       }`}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
+                      onMouseDown={(e) => {
+                        e.preventDefault();
                         setCode(p.name);
                         setShowResults(false);
                       }}

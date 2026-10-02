@@ -17,7 +17,7 @@ export interface Employee {
 }
 
 export interface Department { id: string; name: string; }
-export interface Charge { id: string; name: string; amount: number; }
+export interface Charge { id: string; name: string; amount: number; category?: string; }
 export interface MedicineCategory { id: string; name: string; unit: string; piecesPerUnit?: number; }
 export interface IpdWard { id: string; name: string; pricePerDay: number; }
 
@@ -26,6 +26,10 @@ export interface HospitalSettings {
   address: string;
   logoUrl: string;
   followUpValidityMonths: number;
+  bankAccountName: string;
+  bankAccountNumber: string;
+  bankName: string;
+  bankIfscCode: string;
 }
 
 export interface PastOperation { type: string; bodyPart: string; place: string; deformity: string; }
@@ -178,7 +182,16 @@ const seed = (): DB => ({
   ],
   bills: [],
   seq: { employee: 4, patient: 0 },
-  hospitalSettings: { helpline: "93 74 108 108 / 8000 8111", address: "Vijardiya", logoUrl: "", followUpValidityMonths: 3 },
+  hospitalSettings: { 
+    helpline: "93 74 108 108 / 8000 8111", 
+    address: "Vijardiya", 
+    logoUrl: "", 
+    followUpValidityMonths: 3,
+    bankAccountName: "",
+    bankAccountNumber: "",
+    bankName: "",
+    bankIfscCode: ""
+  },
 });
 
 let cache: DB | null = null;
@@ -202,7 +215,11 @@ function load(): DB {
         helpline: "93 74 108 108 / 8000 8111", 
         address: "Vijardiya", 
         logoUrl: "/logo.jpg",
-        followUpValidityMonths: 3
+        followUpValidityMonths: 3,
+        bankAccountName: "",
+        bankAccountNumber: "",
+        bankName: "",
+        bankIfscCode: ""
       };
     }
     if (!cache.ipdWards) {

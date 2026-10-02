@@ -1,6 +1,6 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
-  LayoutDashboard, Users, ClipboardList, Stethoscope, Pill, Settings as SettingsIcon, LogOut, Menu, BedDouble,
+  LayoutDashboard, Users, ClipboardList, Stethoscope, Pill, Settings as SettingsIcon, LogOut, Menu, BedDouble, Receipt
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useAuth } from "@/lib/auth";
@@ -15,6 +15,7 @@ const NAV: { to: string; label: string; icon: React.ComponentType<{ className?: 
   { to: "/reception", label: "Reception", icon: ClipboardList, requiredModule: "Reception", requiredAction: "Access" },
   { to: "/opd", label: "OPD", icon: Stethoscope, requiredModule: "OPD", requiredAction: "Access" },
   { to: "/ipd", label: "IPD", icon: BedDouble, requiredModule: "OPD", requiredAction: "Access" },
+  { to: "/billing", label: "Billing", icon: Receipt, requiredModule: "Reception", requiredAction: "Access" },
   { to: "/medical", label: "Medical / Pharmacy", icon: Pill, requiredModule: "Medical", requiredAction: "Access" },
   { to: "/settings", label: "Settings", icon: SettingsIcon, requiredModule: "Settings", requiredAction: "Access" },
 ];

@@ -9,6 +9,7 @@ interface AuthCtx {
   hasRole: (roles: Role[]) => boolean;
   hasPermission: (module: string, action: string) => boolean;
   refreshPermissions: () => Promise<void>;
+  isLoading: boolean;
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
@@ -18,6 +19,7 @@ const PERM_KEY = "hms.permissions";
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Employee | null>(null);
   const [permissions, setPermissions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     try {
@@ -26,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const rawPerms = localStorage.getItem(PERM_KEY);
       if (rawPerms) setPermissions(JSON.parse(rawPerms));
     } catch {}
+    setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -85,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  return <Ctx.Provider value={{ user, login, logout, hasRole, hasPermission, refreshPermissions }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, login, logout, hasRole, hasPermission, refreshPermissions, isLoading }}>{children}</Ctx.Provider>;
 }
 
 export function useAuth() {

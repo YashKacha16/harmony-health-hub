@@ -40,6 +40,7 @@ function MedicineAutocomplete({ value, selectedName, onSelect }: { value: string
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Medicine[]>([]);
   const [open, setOpen] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
 
   useEffect(() => {
     setQ(selectedName || "");
@@ -50,10 +51,12 @@ function MedicineAutocomplete({ value, selectedName, onSelect }: { value: string
       const timer = setTimeout(async () => {
         const res = await medicalService.searchMedicine(q.trim());
         setResults(res);
+        setSelectedIndex(-1);
       }, 300);
       return () => clearTimeout(timer);
     } else {
       setResults([]);
+      setSelectedIndex(-1);
     }
   }, [q, open]);
 
@@ -79,6 +82,28 @@ function MedicineAutocomplete({ value, selectedName, onSelect }: { value: string
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!open || results.length === 0) return;
+    
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev < results.length - 1 ? prev + 1 : prev));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < results.length) {
+        handleSelect(results[selectedIndex].id, results[selectedIndex].name);
+      } else if (results.length > 0) {
+        // Fallback to first if none selected
+        handleSelect(results[0].id, results[0].name);
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  };
+
   return (
     <div className="relative w-full">
       <Input
@@ -86,13 +111,14 @@ function MedicineAutocomplete({ value, selectedName, onSelect }: { value: string
         onChange={(e) => { setQ(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onBlur={handleBlur}
+        onKeyDown={handleKeyDown}
         placeholder="Search medicine..."
         className="w-full"
       />
       {open && results.length > 0 && (
         <div className="absolute top-full left-0 mt-1 w-full bg-popover text-popover-foreground rounded-md border shadow-md z-10 overflow-hidden max-h-48 overflow-y-auto">
-          {results.map(m => (
-            <div key={m.id} className="px-3 py-2 text-sm hover:bg-muted cursor-pointer flex justify-between" onMouseDown={async (e) => {
+          {results.map((m, idx) => (
+            <div key={m.id} className={`px-3 py-2 text-sm hover:bg-muted cursor-pointer flex justify-between ${selectedIndex === idx ? "bg-muted text-accent-foreground" : ""}`} onMouseDown={async (e) => {
               e.preventDefault();
               await handleSelect(m.id, m.name);
             }}>

@@ -146,6 +146,26 @@
     color: var(--color-foreground);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-muted-foreground);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-foreground);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-muted-foreground) transparent;
+  }
 }
 
 @media print {

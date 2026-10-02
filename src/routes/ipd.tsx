@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/components/RoleGuard";
 import { useDB } from "@/lib/useStore";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { receptionService } from "@/services/receptionService";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,6 +17,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import type { Patient } from "@/lib/store";
 import { ConsentFormDialog } from "./reception";
 import { NursingChartDialog } from "@/components/NursingChartDialog";
+import { apiService } from "@/api/apiService";
+import { ChevronDown, ChevronRight, Edit } from "lucide-react";
 
 export const Route = createFileRoute("/ipd")({
   head: () => ({
@@ -59,7 +61,31 @@ function IpdPage() {
 
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [printPatient, setPrintPatient] = useState<Patient | null>(null);
-  const [chartPatient, setChartPatient] = useState<Patient | null>(null);
+  const [chartPatient, setChartPatient] = useState<{ patient: Patient, initialDate?: string } | null>(null);
+
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
+  const [patientCharts, setPatientCharts] = useState<Record<string, any[]>>({});
+  const [isLoadingCharts, setIsLoadingCharts] = useState(false);
+
+  const toggleRow = async (patientId: string) => {
+    if (expandedRowId === patientId) {
+      setExpandedRowId(null);
+    } else {
+      setExpandedRowId(patientId);
+      if (!patientCharts[patientId]) {
+        setIsLoadingCharts(true);
+        try {
+          const charts = await apiService.nursingCharts.getByPatientId(patientId);
+          setPatientCharts(prev => ({ ...prev, [patientId]: charts }));
+        } catch (err) {
+          console.error(err);
+          toast.error("Failed to load nursing charts");
+        } finally {
+          setIsLoadingCharts(false);
+        }
+      }
+    }
+  };
 
   const confirmDelete = async () => {
     if (deleteId) {
@@ -103,6 +129,7 @@ function IpdPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]"></TableHead>
                   <TableHead>Code</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Age/Gender</TableHead>
@@ -117,37 +144,86 @@ function IpdPage() {
               <TableBody>
                 {paginatedPatients.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                       No IPD patients found.
                     </TableCell>
                   </TableRow>
                 )}
                 {paginatedPatients.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-mono text-xs">{p.code}</TableCell>
-                    <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell>
-                      {p.age} / {p.gender}
-                    </TableCell>
-                    <TableCell>{p.ward || "-"}</TableCell>
-                    <TableCell>{p.wardNumber || "-"}</TableCell>
-                    <TableCell>{p.doctor || "-"}</TableCell>
-                    <TableCell>{new Date(p.registeredAt).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={p.status} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => setChartPatient(p)} title="Print Nursing / Vitals Chart" className="text-blue-500 hover:text-blue-700 hover:bg-blue-50">
-                        <FileText className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setPrintPatient(p)} title="Print Consent Form">
-                        <Printer className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50" title="Delete">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                  <React.Fragment key={p.id}>
+                    <TableRow 
+                      className={`cursor-pointer hover:bg-muted/50 ${expandedRowId === p.id ? "bg-muted/30" : ""}`}
+                      onClick={() => toggleRow(p.id)}
+                    >
+                      <TableCell>
+                        {expandedRowId === p.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{p.code}</TableCell>
+                      <TableCell className="font-medium">{p.name}</TableCell>
+                      <TableCell>
+                        {p.age} / {p.gender}
+                      </TableCell>
+                      <TableCell>{p.ward || "-"}</TableCell>
+                      <TableCell>{p.wardNumber || "-"}</TableCell>
+                      <TableCell>{p.doctor || "-"}</TableCell>
+                      <TableCell>{new Date(p.registeredAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={p.status} />
+                      </TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon" onClick={() => setChartPatient({ patient: p, initialDate: "new" })} title="New Nursing Chart" className="text-blue-500 hover:text-blue-700 hover:bg-blue-50">
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => setPrintPatient(p)} title="Print Consent Form">
+                          <Printer className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} className="text-red-500 hover:text-red-700 hover:bg-red-50" title="Delete">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    
+                    {expandedRowId === p.id && (
+                      <TableRow>
+                        <TableCell colSpan={10} className="p-0 border-b">
+                          <div className="bg-muted/10 p-4 border-l-4 border-l-primary/60 m-2 rounded-r-md">
+                            <div className="flex justify-between items-center mb-3">
+                              <h4 className="font-semibold text-sm">Nursing Charts History</h4>
+                              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setChartPatient({ patient: p, initialDate: "new" })}>
+                                + New Chart
+                              </Button>
+                            </div>
+                            
+                            {isLoadingCharts && !patientCharts[p.id] ? (
+                              <div className="text-xs text-muted-foreground py-2">Loading charts...</div>
+                            ) : (
+                              patientCharts[p.id]?.length > 0 ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                  {patientCharts[p.id].map(chart => (
+                                    <div key={chart.date} className="bg-background border rounded-md p-3 flex justify-between items-center shadow-sm">
+                                      <div>
+                                        <div className="font-semibold text-sm">{chart.date}</div>
+                                        <div className="text-xs text-muted-foreground mt-0.5">
+                                          {chart.medications?.length || 0} Meds • Every {chart.vitalsIntervalHours}h
+                                        </div>
+                                      </div>
+                                      <Button size="icon" variant="ghost" className="h-8 w-8 text-primary hover:bg-primary/10" onClick={() => setChartPatient({ patient: p, initialDate: chart.date })}>
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="text-xs text-muted-foreground py-2 border border-dashed rounded-md text-center bg-background/50">
+                                  No nursing charts recorded for this patient yet.
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </React.Fragment>
                 ))}
               </TableBody>
             </Table>
@@ -205,9 +281,18 @@ function IpdPage() {
 
       {chartPatient && (
         <NursingChartDialog
-          patient={chartPatient}
+          patient={chartPatient.patient}
           settings={db.hospitalSettings}
           onClose={() => setChartPatient(null)}
+          onSave={() => {
+            // Re-fetch charts immediately when save happens to keep grid in sync
+            if (expandedRowId === chartPatient.patient.id) {
+              apiService.nursingCharts.getByPatientId(chartPatient.patient.id).then((charts) => {
+                setPatientCharts(prev => ({ ...prev, [chartPatient.patient.id]: charts }));
+              });
+            }
+          }}
+          initialDate={chartPatient.initialDate}
         />
       )}
     </div>

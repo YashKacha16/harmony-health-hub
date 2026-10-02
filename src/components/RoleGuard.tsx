@@ -4,7 +4,9 @@ import { useAuth } from "@/lib/auth";
 import type { Role } from "@/lib/store";
 
 export function RequireAuth({ children, module, action }: { children: ReactNode; module?: string; action?: string }) {
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, isLoading } = useAuth();
+  
+  if (isLoading) return <div className="grid min-h-screen place-items-center"><div className="w-8 h-8 rounded-full border-4 border-primary border-t-transparent animate-spin"></div></div>;
   if (!user) return <Navigate to="/login" />;
   
   if (module && action && !hasPermission(module, action)) {

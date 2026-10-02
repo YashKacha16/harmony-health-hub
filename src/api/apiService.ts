@@ -13,16 +13,19 @@ export interface ChargeBackendDto {
   id: number;
   name: string;
   amount: number;
+  category?: string;
 }
 
 export interface CreateChargePayload {
   name: string;
   amount: number;
+  category?: string;
 }
 
 export interface UpdateChargePayload {
   name?: string;
   amount?: number;
+  category?: string;
 }
 
 export interface MedicineCategoryBackendDto {
@@ -578,6 +581,72 @@ export const apiService = {
       return apiClient<void>("/rolepermission/rename", {
         method: "PATCH",
         body: JSON.stringify({ oldName, newName }),
+      });
+    }
+  },
+  nursingCharts: {
+    getByPatientId: async (patientId: string | number): Promise<any[]> => {
+      return apiClient<any[]>(`/nursingcharts/${patientId}`);
+    },
+    save: async (payload: any): Promise<any> => {
+      return apiClient<any>("/nursingcharts", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    }
+  },
+  depositReceipts: {
+    getByPatientId: async (patientId: string | number): Promise<any[]> => {
+      return apiClient<any[]>(`/depositreceipts/patient/${patientId}`);
+    },
+    create: async (payload: any): Promise<any> => {
+      return apiClient<any>("/depositreceipts", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+    update: async (id: number, payload: any): Promise<void> => {
+      return apiClient<void>(`/depositreceipts/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+    },
+    delete: async (id: number): Promise<void> => {
+      return apiClient<void>(`/depositreceipts/${id}`, {
+        method: "DELETE",
+      });
+    }
+  },
+  ipdCaseBills: {
+    getByPatientId: async (patientId: string | number): Promise<any[]> => {
+      return apiClient<any[]>(`/ipdcasebills/patient/${patientId}`);
+    },
+    create: async (payload: any): Promise<any> => {
+      return apiClient<any>("/ipdcasebills", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    }
+  },
+  labBills: {
+    getByPatientId: async (patientId: string | number): Promise<any[]> => {
+      return apiClient<any[]>(`/labbills/patient/${patientId}`);
+    },
+    create: async (payload: any): Promise<any> => {
+      return apiClient<any>("/labbills", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    }
+  },
+  finalBills: {
+    getByPatientId: async (patientId: string | number): Promise<any[]> => {
+      return apiClient<any[]>(`/finalbills/patient/${patientId}`);
+    },
+    create: async (payload: any): Promise<any> => {
+      return apiClient<any>("/finalbills", {
+        method: "POST",
+        body: JSON.stringify(payload),
       });
     }
   }

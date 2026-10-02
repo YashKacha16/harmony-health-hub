@@ -137,7 +137,10 @@ function ReceptionPage() {
     setD({ ...initial, department: d.department });
     setSearchQuery("");
     setSearchResults([]);
+    setSelectedIndex(-1);
   };
+
+  const [selectedIndex, setSelectedIndex] = useState(-1);
 
   useEffect(() => {
     if (!searchQuery) {
@@ -149,6 +152,7 @@ function ReceptionPage() {
       try {
         const results = await receptionService.searchPatient(searchQuery, true);
         setSearchResults(results);
+        setSelectedIndex(-1);
       } catch (err) {
         console.error(err);
       } finally {
@@ -202,8 +206,30 @@ function ReceptionPage() {
       toast.success("Patient details loaded for follow-up.");
       setShowResults(false);
       setSearchQuery("");
+      setSelectedIndex(-1);
     } catch (err) {
       toast.error("Error loading patient details.");
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showResults || searchResults.length === 0) return;
+    
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : prev));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < searchResults.length) {
+        selectFollowUpPatient(searchResults[selectedIndex]);
+      } else if (searchResults.length > 0) {
+        selectFollowUpPatient(searchResults[0]);
+      }
+    } else if (e.key === "Escape") {
+      setShowResults(false);
     }
   };
 
@@ -262,6 +288,8 @@ function ReceptionPage() {
                       setShowResults(true);
                     }}
                     onFocus={() => setShowResults(true)}
+                    onKeyDown={handleKeyDown}
+                    onBlur={() => setTimeout(() => setShowResults(false), 200)}
                   />
                   {showResults && searchQuery && (
                     <div className="absolute z-10 w-full mt-1 bg-popover text-popover-foreground rounded-md border shadow-md overflow-hidden">
@@ -269,11 +297,14 @@ function ReceptionPage() {
                         <div className="p-3 text-sm text-center text-muted-foreground">Searching...</div>
                       ) : searchResults.length > 0 ? (
                         <div className="max-h-60 overflow-auto">
-                          {searchResults.map((p) => (
+                          {searchResults.map((p, idx) => (
                             <div 
                               key={p.id} 
-                              className="px-3 py-2 cursor-pointer hover:bg-muted text-sm border-b last:border-0"
-                              onClick={() => selectFollowUpPatient(p)}
+                              className={`px-3 py-2 cursor-pointer hover:bg-muted text-sm border-b last:border-0 ${selectedIndex === idx ? "bg-muted font-medium" : ""}`}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                selectFollowUpPatient(p);
+                              }}
                             >
                               <div className="font-medium">{p.name}</div>
                               <div className="text-xs text-muted-foreground">{p.code} • {p.phone}</div>
@@ -601,6 +632,9 @@ const handlePrintReceipt = (patient: Patient, settings: any) => {
           .header-img { width: 100%; max-height: 130px; object-fit: contain; margin-bottom: 10px; }
           .hospital-address-bar { text-align: center; font-size: 14px; font-weight: 700; color: #444; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
           
+          .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.10; z-index: -1; pointer-events: none; width: 100%; display: flex; justify-content: center; align-items: center; }
+          .watermark img { width: 80%; max-width: 600px; object-fit: contain; transform: rotate(-12deg); }
+
           .divider { border: 0; border-bottom: 2px solid #333; margin: 15px 0; }
           
           .patient-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px; font-size: 13px; }
@@ -624,6 +658,9 @@ const handlePrintReceipt = (patient: Patient, settings: any) => {
         </style>
       </head>
       <body>
+        <div class="watermark">
+          ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Watermark" />` : ''}
+        </div>
         <img src="${settings?.logoUrl && settings.logoUrl !== '/logo.png' ? settings.logoUrl : '/logo.jpg'}" class="header-img" alt="Logo" onerror="this.src='/lifecare-logo.jpg'" />
         ${settings?.address ? `<div class="hospital-address-bar">${settings.address}</div>` : ''}
         
