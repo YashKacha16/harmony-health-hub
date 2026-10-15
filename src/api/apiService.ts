@@ -138,6 +138,18 @@ export interface PatientBackendDto {
   child?: string;
   occupation?: string;
   religion?: string;
+  isMlc: boolean;
+  mlcDrIncharge?: string;
+  mlcMedicalOfficer?: string;
+  mlcDetailOfMatter?: string;
+  mlcDateOfMatter?: string;
+  mlcTimeOfMatter?: string;
+  mlcCauseOfMatter?: string;
+  mlcPlaceOfMatter?: string;
+  mlcAnyOfHospitalisedPastHO?: string;
+  mlcCurrentCondition?: string;
+  mlcNameOfFiller?: string;
+  mlcFillerMoNo?: string;
 }
 
 export interface CreatePatientPayload {
@@ -174,6 +186,18 @@ export interface CreatePatientPayload {
   child?: string;
   occupation?: string;
   religion?: string;
+  isMlc: boolean;
+  mlcDrIncharge?: string;
+  mlcMedicalOfficer?: string;
+  mlcDetailOfMatter?: string;
+  mlcDateOfMatter?: string;
+  mlcTimeOfMatter?: string;
+  mlcCauseOfMatter?: string;
+  mlcPlaceOfMatter?: string;
+  mlcAnyOfHospitalisedPastHO?: string;
+  mlcCurrentCondition?: string;
+  mlcNameOfFiller?: string;
+  mlcFillerMoNo?: string;
 }
 
 export interface UpdatePatientPayload {
@@ -207,6 +231,22 @@ export interface UpdatePatientPayload {
   relation?: string;
   relativePhone?: string;
   relativeAddress?: string;
+  maritalStatus?: string;
+  child?: string;
+  occupation?: string;
+  religion?: string;
+  isMlc?: boolean;
+  mlcDrIncharge?: string;
+  mlcMedicalOfficer?: string;
+  mlcDetailOfMatter?: string;
+  mlcDateOfMatter?: string;
+  mlcTimeOfMatter?: string;
+  mlcCauseOfMatter?: string;
+  mlcPlaceOfMatter?: string;
+  mlcAnyOfHospitalisedPastHO?: string;
+  mlcCurrentCondition?: string;
+  mlcNameOfFiller?: string;
+  mlcFillerMoNo?: string;
 }
 
 export interface CreateEmployeePayload {

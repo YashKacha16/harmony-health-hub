@@ -50,6 +50,18 @@ function mapPatient(p: PatientBackendDto): Patient {
     child: p.child,
     occupation: p.occupation,
     religion: p.religion,
+    isMlc: p.isMlc,
+    mlcDrIncharge: p.mlcDrIncharge,
+    mlcMedicalOfficer: p.mlcMedicalOfficer,
+    mlcDetailOfMatter: p.mlcDetailOfMatter,
+    mlcDateOfMatter: p.mlcDateOfMatter,
+    mlcTimeOfMatter: p.mlcTimeOfMatter,
+    mlcCauseOfMatter: p.mlcCauseOfMatter,
+    mlcPlaceOfMatter: p.mlcPlaceOfMatter,
+    mlcAnyOfHospitalisedPastHO: p.mlcAnyOfHospitalisedPastHO,
+    mlcCurrentCondition: p.mlcCurrentCondition,
+    mlcNameOfFiller: p.mlcNameOfFiller,
+    mlcFillerMoNo: p.mlcFillerMoNo,
   };
 }
 
@@ -128,6 +140,18 @@ export const receptionService = {
         child: data.child,
         occupation: data.occupation,
         religion: data.religion,
+        isMlc: data.isMlc ?? false,
+        mlcDrIncharge: data.mlcDrIncharge,
+        mlcMedicalOfficer: data.mlcMedicalOfficer,
+        mlcDetailOfMatter: data.mlcDetailOfMatter,
+        mlcDateOfMatter: data.mlcDateOfMatter,
+        mlcTimeOfMatter: data.mlcTimeOfMatter,
+        mlcCauseOfMatter: data.mlcCauseOfMatter,
+        mlcPlaceOfMatter: data.mlcPlaceOfMatter,
+        mlcAnyOfHospitalisedPastHO: data.mlcAnyOfHospitalisedPastHO,
+        mlcCurrentCondition: data.mlcCurrentCondition,
+        mlcNameOfFiller: data.mlcNameOfFiller,
+        mlcFillerMoNo: data.mlcFillerMoNo,
       };
       
       const newPatient = await apiService.patients.create(payload);

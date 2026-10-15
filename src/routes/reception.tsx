@@ -46,6 +46,19 @@ interface Draft {
   child?: string;
   occupation?: string;
   religion?: string;
+
+  isMlc: boolean;
+  mlcDrIncharge?: string;
+  mlcMedicalOfficer?: string;
+  mlcDetailOfMatter?: string;
+  mlcDateOfMatter?: string;
+  mlcTimeOfMatter?: string;
+  mlcCauseOfMatter?: string;
+  mlcPlaceOfMatter?: string;
+  mlcAnyOfHospitalisedPastHO?: string;
+  mlcCurrentCondition?: string;
+  mlcNameOfFiller?: string;
+  mlcFillerMoNo?: string;
 }
 
 let cachedDraft: Draft | null = null;
@@ -73,6 +86,9 @@ function ReceptionPage() {
     wardHistory: [{ ward: "", wardNumber: "" }],
     relativeName: "", relation: "", relativePhone: "", relativeAddress: "",
     maritalStatus: "", child: "", occupation: "", religion: "",
+    isMlc: false, mlcDrIncharge: "", mlcMedicalOfficer: "", mlcDetailOfMatter: "",
+    mlcDateOfMatter: "", mlcTimeOfMatter: "", mlcCauseOfMatter: "", mlcPlaceOfMatter: "",
+    mlcAnyOfHospitalisedPastHO: "", mlcCurrentCondition: "", mlcNameOfFiller: "", mlcFillerMoNo: "",
   };
 
   const [d, setD] = useState<Draft>(cachedDraft || initial);
@@ -126,6 +142,18 @@ function ReceptionPage() {
       child: d.type === "IPD" ? d.child : undefined,
       occupation: d.type === "IPD" ? d.occupation : undefined,
       religion: d.type === "IPD" ? d.religion : undefined,
+      isMlc: d.isMlc,
+      mlcDrIncharge: d.isMlc ? d.mlcDrIncharge : undefined,
+      mlcMedicalOfficer: d.isMlc ? d.mlcMedicalOfficer : undefined,
+      mlcDetailOfMatter: d.isMlc ? d.mlcDetailOfMatter : undefined,
+      mlcDateOfMatter: d.isMlc ? d.mlcDateOfMatter : undefined,
+      mlcTimeOfMatter: d.isMlc ? d.mlcTimeOfMatter : undefined,
+      mlcCauseOfMatter: d.isMlc ? d.mlcCauseOfMatter : undefined,
+      mlcPlaceOfMatter: d.isMlc ? d.mlcPlaceOfMatter : undefined,
+      mlcAnyOfHospitalisedPastHO: d.isMlc ? d.mlcAnyOfHospitalisedPastHO : undefined,
+      mlcCurrentCondition: d.isMlc ? d.mlcCurrentCondition : undefined,
+      mlcNameOfFiller: d.isMlc ? d.mlcNameOfFiller : undefined,
+      mlcFillerMoNo: d.isMlc ? d.mlcFillerMoNo : undefined,
     });
     if (d.type === "IPD") {
       setConsentPatient(patient);
@@ -202,6 +230,18 @@ function ReceptionPage() {
         policyNumber: patientData.policyNumber || "",
         hasPastOps: !!(patientData.pastOperations && patientData.pastOperations.length > 0),
         pastOperations: patientData.pastOperations || [],
+        isMlc: !!patientData.isMlc,
+        mlcDrIncharge: patientData.mlcDrIncharge || "",
+        mlcMedicalOfficer: patientData.mlcMedicalOfficer || "",
+        mlcDetailOfMatter: patientData.mlcDetailOfMatter || "",
+        mlcDateOfMatter: patientData.mlcDateOfMatter || "",
+        mlcTimeOfMatter: patientData.mlcTimeOfMatter || "",
+        mlcCauseOfMatter: patientData.mlcCauseOfMatter || "",
+        mlcPlaceOfMatter: patientData.mlcPlaceOfMatter || "",
+        mlcAnyOfHospitalisedPastHO: patientData.mlcAnyOfHospitalisedPastHO || "",
+        mlcCurrentCondition: patientData.mlcCurrentCondition || "",
+        mlcNameOfFiller: patientData.mlcNameOfFiller || "",
+        mlcFillerMoNo: patientData.mlcFillerMoNo || "",
       });
       toast.success("Patient details loaded for follow-up.");
       setShowResults(false);
@@ -530,6 +570,26 @@ function ReceptionPage() {
               )}
             </Section>
 
+            <Section title="Medico-Legal Case (MLC)">
+              <div className="flex items-center gap-2 mb-4">
+                <Checkbox id="isMlc" checked={d.isMlc} onCheckedChange={(v) => set("isMlc", !!v)} />
+                <Label htmlFor="isMlc">Is this a Medico-Legal Case (MLC)?</Label>
+              </div>
+              {d.isMlc && (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 border p-4 rounded-lg bg-muted/20">
+                  <Field label="Date of Matter"><Input type="date" value={d.mlcDateOfMatter} onChange={(e) => set("mlcDateOfMatter", e.target.value)} /></Field>
+                  <Field label="Time of Matter"><Input type="time" value={d.mlcTimeOfMatter} onChange={(e) => set("mlcTimeOfMatter", e.target.value)} /></Field>
+                  <Field label="Cause of Matter"><Input value={d.mlcCauseOfMatter} onChange={(e) => set("mlcCauseOfMatter", e.target.value)} /></Field>
+                  <Field label="Place of Matter"><Input value={d.mlcPlaceOfMatter} onChange={(e) => set("mlcPlaceOfMatter", e.target.value)} /></Field>
+                  <Field label="Any Hospitalized Past H/O" className="lg:col-span-3"><Input value={d.mlcAnyOfHospitalisedPastHO} onChange={(e) => set("mlcAnyOfHospitalisedPastHO", e.target.value)} /></Field>
+                  <Field label="Detail of Matter" className="lg:col-span-3"><Textarea rows={2} value={d.mlcDetailOfMatter} onChange={(e) => set("mlcDetailOfMatter", e.target.value)} /></Field>
+                  <Field label="Current Condition" className="lg:col-span-3"><Textarea rows={2} value={d.mlcCurrentCondition} onChange={(e) => set("mlcCurrentCondition", e.target.value)} /></Field>
+                  <Field label="Name of Filler"><Input value={d.mlcNameOfFiller} onChange={(e) => set("mlcNameOfFiller", e.target.value)} /></Field>
+                  <Field label="Filler Mo No."><Input value={d.mlcFillerMoNo} maxLength={10} onChange={(e) => set("mlcFillerMoNo", e.target.value.replace(/\D/g, ''))} /></Field>
+                </div>
+              )}
+            </Section>
+
           <div className="flex justify-end gap-2 pt-2 border-t">
             <Button variant="outline" onClick={() => setD(initial)}>Reset</Button>
             <Button onClick={submit}>Register patient</Button>
@@ -542,9 +602,16 @@ function ReceptionPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Registration receipt</DialogTitle></DialogHeader>
           {receipt && <Receipt patient={receipt} />}
-          <div className="flex justify-end gap-2 no-print">
+          <div className="flex justify-end gap-2 no-print flex-wrap">
             <Button variant="outline" onClick={() => setReceipt(null)}>Close</Button>
-            <Button onClick={() => receipt && handlePrintReceipt(receipt, db.hospitalSettings)}><Printer className="h-4 w-4 mr-2" /> Print receipt</Button>
+            {receipt?.isMlc && (
+              <Button variant="secondary" onClick={() => receipt && handlePrintMlc(receipt, db.hospitalSettings)}>
+                <Printer className="h-4 w-4 mr-2" /> Print MLC
+              </Button>
+            )}
+            <Button onClick={() => receipt && handlePrintReceipt(receipt, db.hospitalSettings)}>
+              <Printer className="h-4 w-4 mr-2" /> Print receipt
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -726,6 +793,237 @@ const handlePrintReceipt = (patient: Patient, settings: any) => {
         
         ${settings?.helpline ? `<div class="footer-helpline">HELP LINE :- ${settings.helpline}</div>` : ''}
         
+        <script>
+          setTimeout(function() {
+            window.print();
+          }, 250);
+        </script>
+      </body>
+    </html>
+  `;
+  printWindow.document.open();
+  printWindow.document.write(content);
+  printWindow.document.close();
+};
+
+export const handlePrintMlc = (patient: Patient, settings: any) => {
+  let printIframe = document.getElementById("print-iframe") as HTMLIFrameElement;
+  if (!printIframe) {
+    printIframe = document.createElement("iframe");
+    printIframe.id = "print-iframe";
+    printIframe.style.position = "absolute";
+    printIframe.style.width = "0";
+    printIframe.style.height = "0";
+    printIframe.style.border = "none";
+    document.body.appendChild(printIframe);
+  }
+  const printWindow = printIframe.contentWindow;
+  if (!printWindow) return;
+
+  const content = `
+    <html>
+      <head>
+        <title>M.L.C. Form - ${patient.code}</title>
+        <style>
+          @page { margin: 0; size: A4; }
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 0; margin: 0; color: #111; line-height: 1.6; font-size: 13px; font-weight: bold; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          
+          .page-padding { padding: 0 40px 40px 40px; }
+          
+          .top-section { 
+            background-color: #4b4b4b !important; 
+            margin: 20px 20px 30px 20px;
+            border-radius: 40px;
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            height: 120px;
+            position: relative;
+          }
+          .logo-container { 
+            background-color: white !important;
+            height: 100%;
+            width: calc(100% - 180px);
+            border-radius: 40px 0 0 40px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          .logo-container img { width: 100%; height: 100%; border-radius: 40px 0 0 40px; object-fit: fill; }
+          .helpline-circle {
+            background-color: white !important;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+          }
+          .helpline-circle span { color: #e53e3e; }
+          .helpline-title { font-size: 14px; margin-bottom: 5px; }
+          .helpline-number { font-size: 18px; font-weight: bold; }
+          
+          .title-area { display: flex; justify-content: space-between; border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; }
+          .form-title { color: #ff6b6b; text-decoration: underline; font-size: 16px; text-transform: uppercase; }
+          .date-time { text-decoration: underline; color: #88afc5; }
+          
+          .form-row { margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+          .field-label { text-transform: uppercase; white-space: nowrap; color: #111; }
+          .field-value { flex: 1; border-bottom: 1px dotted #333; color: #444; padding: 0 5px; min-width: 50px; }
+          
+          .full-line { width: 100%; border-bottom: 1px dotted #333; margin-top: 10px; height: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="top-section">
+          <div class="logo-container">
+            ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ''}
+          </div>
+          <div class="helpline-circle">
+            <span class="helpline-title">Help Line :</span>
+            <span class="helpline-number">${settings?.helpline || 'N/A'}</span>
+          </div>
+        </div>
+
+        <div class="page-padding">
+          <div class="title-area">
+            <div class="form-title">Registration and M.L.C. Form</div>
+            <div class="date-time">DATE / TIME:- ${patient.mlcDateOfMatter || ''} ${patient.mlcTimeOfMatter || ''}</div>
+          </div>
+
+        <div class="form-row">
+          <span class="field-label">Patient Full Name -</span>
+          <span class="field-value">${patient.name}</span>
+        </div>
+
+        <div class="form-row" style="display: flex;">
+          <span class="field-label">Age / Gender -</span>
+          <span class="field-value" style="flex: 2;">${patient.age} / ${patient.gender}</span>
+          <span class="field-label">Marital Status -</span>
+          <span class="field-value" style="flex: 2;">${patient.maritalStatus || '-'}</span>
+          <span class="field-label">Child -</span>
+          <span class="field-value" style="flex: 1;">${patient.child || '-'}</span>
+        </div>
+
+        <div class="form-row" style="display: flex;">
+          <span class="field-label">Occupation -</span>
+          <span class="field-value" style="flex: 2;">${patient.occupation || '-'}</span>
+          <span class="field-label">Religion -</span>
+          <span class="field-value" style="flex: 2;">${patient.religion || '-'}</span>
+          <span class="field-label">Cast -</span>
+          <span class="field-value" style="flex: 1;">${patient.caste || '-'}</span>
+        </div>
+
+        <div class="form-row" style="display: flex;">
+          <span class="field-label">City -</span>
+          <span class="field-value" style="flex: 2;">${patient.city || '-'}</span>
+          <span class="field-label">State -</span>
+          <span class="field-value" style="flex: 2;">${patient.state || '-'}</span>
+          <span class="field-label">Pin No., -</span>
+          <span class="field-value" style="flex: 1;">${patient.pincode || '-'}</span>
+        </div>
+
+        <div class="form-row">
+          <span class="field-label">Relative Currently With Name -</span>
+          <span class="field-value">${patient.relativeName || '-'}</span>
+        </div>
+
+        <div class="form-row" style="display: flex;">
+          <span class="field-label">Relation -</span>
+          <span class="field-value" style="flex: 1;">${patient.relation || '-'}</span>
+          <span class="field-label">Relative Mo No, -</span>
+          <span class="field-value" style="flex: 1;">${patient.relativePhone || '-'}</span>
+        </div>
+
+        <div class="form-row">
+          <span class="field-label">Current Address -</span>
+          <span class="field-value">${patient.addressLine || '-'}</span>
+        </div>
+        <div class="full-line"></div>
+
+        <div class="form-row">
+          <span class="field-label">Permanent Address -</span>
+          <span class="field-value">${patient.addressLine || '-'}</span>
+        </div>
+
+        <div class="form-row" style="display: flex;">
+          <span class="field-label">Mo.,No., -</span>
+          <span class="field-value" style="flex: 2;">${patient.phone || '-'}</span>
+          <span class="field-label">Mediclaim –</span>
+          <span class="field-value" style="flex: 1; border: none;">${patient.mediclaim ? 'YES' : 'NO'}</span>
+        </div>
+
+        <div class="form-row" style="display: flex;">
+          <span class="field-label">Dr. Incharge -</span>
+          <span class="field-value" style="flex: 1;">${patient.doctor || '-'}</span>
+          <span class="field-label">Medical Officer -</span>
+          <span class="field-value" style="flex: 1;">${patient.doctor || '-'}</span>
+        </div>
+
+        <div class="form-row">
+          <span class="field-label">Detail of Matter -</span>
+          <span class="field-value">${patient.mlcDetailOfMatter || '-'}</span>
+        </div>
+        <div class="full-line"></div>
+        <div class="full-line"></div>
+        <div class="full-line"></div>
+
+        <div class="form-row" style="display: flex;">
+          <span class="field-label">Date of Matter -</span>
+          <span class="field-value" style="flex: 1;">${patient.mlcDateOfMatter || '-'}</span>
+          <span class="field-label">Time of Matter -</span>
+          <span class="field-value" style="flex: 1;">${patient.mlcTimeOfMatter || '-'}</span>
+        </div>
+
+        <div class="form-row" style="display: flex;">
+          <span class="field-label">Cause of Matter -</span>
+          <span class="field-value" style="flex: 1;">${patient.mlcCauseOfMatter || '-'}</span>
+          <span class="field-label">Place of Matter -</span>
+          <span class="field-value" style="flex: 1;">${patient.mlcPlaceOfMatter || '-'}</span>
+        </div>
+
+        <div class="form-row">
+          <span class="field-label">Any of Hospitalised Past H/O -</span>
+          <span class="field-value">${patient.mlcAnyOfHospitalisedPastHO || '-'}</span>
+        </div>
+        <div class="full-line"></div>
+
+        <div class="form-row">
+          <span class="field-label">Current Condition -</span>
+          <span class="field-value">${patient.mlcCurrentCondition || '-'}</span>
+        </div>
+        <div class="full-line"></div>
+
+        <br/><br/>
+        <div class="form-row" style="display: flex;">
+          <span class="field-label">Name of Filler -</span>
+          <span class="field-value" style="flex: 2;">${patient.mlcNameOfFiller || '-'}</span>
+          <span class="field-label">Mo No -</span>
+          <span class="field-value" style="flex: 1;">${patient.mlcFillerMoNo || '-'}</span>
+        </div>
+
+        <br/>
+        <div class="form-row">
+          <span class="field-label">Signature -</span>
+          <span class="field-value" style="max-width: 250px;"></span>
+        </div>
+
+        <div class="form-row">
+          <span class="field-label">Add -</span>
+          <span class="field-value"></span>
+        </div>
+        </div>
+
         <script>
           setTimeout(function() {
             window.print();
@@ -1005,13 +1303,27 @@ export function ConsentFormDialog({ patient, settings, onClose, isReprint = fals
           </div>
         )}
 
-        <div className="flex justify-between items-center mt-2">
+        <div className="flex justify-between items-center mt-2 flex-wrap gap-2">
           {!isReprint && (
-            <Button variant="outline" onClick={printConsent}>
-              <Printer className="h-4 w-4 mr-2" /> Print Consent Form
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={printConsent}>
+                <Printer className="h-4 w-4 mr-2" /> Print Consent Form
+              </Button>
+              {patient.isMlc && (
+                <Button variant="outline" onClick={() => handlePrintMlc(patient, settings)}>
+                  <Printer className="h-4 w-4 mr-2" /> Print MLC
+                </Button>
+              )}
+            </div>
           )}
-          <div className="flex gap-2 w-full justify-end">
+          {isReprint && patient.isMlc && (
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => handlePrintMlc(patient, settings)}>
+                <Printer className="h-4 w-4 mr-2" /> Print MLC
+              </Button>
+            </div>
+          )}
+          <div className="flex gap-2 w-full sm:w-auto justify-end">
             <Button variant="ghost" onClick={onClose}>{isReprint ? "Cancel" : "Cancel"}</Button>
             {isReprint ? (
               <Button onClick={printConsent} className="gap-2">

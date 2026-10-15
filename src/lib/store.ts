@@ -73,6 +73,19 @@ export interface Patient {
   child?: string;
   occupation?: string;
   religion?: string;
+
+  isMlc?: boolean;
+  mlcDrIncharge?: string;
+  mlcMedicalOfficer?: string;
+  mlcDetailOfMatter?: string;
+  mlcDateOfMatter?: string;
+  mlcTimeOfMatter?: string;
+  mlcCauseOfMatter?: string;
+  mlcPlaceOfMatter?: string;
+  mlcAnyOfHospitalisedPastHO?: string;
+  mlcCurrentCondition?: string;
+  mlcNameOfFiller?: string;
+  mlcFillerMoNo?: string;
 }
 
 export interface PrescribedMedicine {

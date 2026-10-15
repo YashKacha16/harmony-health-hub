@@ -21,6 +21,7 @@ import { opdService } from "@/services/opdService";
 import { medicalService } from "@/services/medicalService";
 import { receptionService } from "@/services/receptionService";
 import { apiService } from "@/api/apiService";
+import { handlePrintMlc } from "./reception";
 import type { Patient, PrescribedMedicine, Prescription } from "@/lib/store";
 
 export const Route = createFileRoute("/opd")({
@@ -594,7 +595,7 @@ function OPDPage() {
                     <TableCell>{p.doctor}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">{new Date(p.registeredAt).toLocaleDateString()}</TableCell>
                     <TableCell><StatusBadge status={p.status} /></TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap">
                       {p.status === "Completed" ? (
                         <Button size="sm" variant="outline" onClick={() => openPrint(p)}>
                           <Printer className="h-4 w-4 mr-2" /> View / Print
@@ -602,6 +603,11 @@ function OPDPage() {
                       ) : (
                         <Button size="sm" onClick={() => openPrescribe(p)}>
                           <Stethoscope className="h-4 w-4 mr-1" /> Prescribe
+                        </Button>
+                      )}
+                      {p.isMlc && (
+                        <Button size="sm" variant="outline" className="ml-2" onClick={() => handlePrintMlc(p, db.hospitalSettings)}>
+                          <Printer className="h-4 w-4 mr-2" /> Print MLC
                         </Button>
                       )}
                       <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} className="ml-2 text-red-500 hover:text-red-700 hover:bg-red-50">
