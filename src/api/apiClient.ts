@@ -1,11 +1,11 @@
-export const BASE_URL = "http://localhost:5037/api";
+export const BASE_URL = "http://localhost:5050/api";
 
 export async function apiClient<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${BASE_URL}${endpoint}`;
-  
+
   const headers = {
     "Content-Type": "application/json",
     ...(options.headers || {}),

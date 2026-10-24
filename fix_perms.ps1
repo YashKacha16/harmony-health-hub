@@ -7,5 +7,5 @@ foreach ($mod in $modules) {
         isAllowed = $true
         isLocked = $false
     } | ConvertTo-Json
-    Invoke-RestMethod -Uri 'http://localhost:5037/api/RolePermission' -Method Post -Body $body -ContentType 'application/json'
+    Invoke-RestMethod -Uri 'http://localhost:5050/api/RolePermission' -Method Post -Body $body -ContentType 'application/json'
 }

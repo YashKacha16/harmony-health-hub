@@ -17,6 +17,7 @@ import { useDB } from "@/lib/useStore";
 import { receptionService } from "@/services/receptionService";
 import { settingsService } from "@/services/settingsService";
 import type { PastOperation, Patient } from "@/lib/store";
+import numberToWords from "number-to-words";
 
 export const Route = createFileRoute("/reception")({
   head: () => ({ meta: [{ title: "Reception — MediCore HMS" }, { name: "description", content: "Patient registration and receipt generation." }] }),
@@ -599,9 +600,9 @@ function ReceptionPage() {
       </Tabs>
 
       <Dialog open={!!receipt} onOpenChange={(v) => !v && setReceipt(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Registration receipt</DialogTitle></DialogHeader>
-          {receipt && <Receipt patient={receipt} />}
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Registration Receipt</DialogTitle></DialogHeader>
+          {receipt && <Receipt patient={receipt} settings={db.hospitalSettings} />}
           <div className="flex justify-end gap-2 no-print flex-wrap">
             <Button variant="outline" onClick={() => setReceipt(null)}>Close</Button>
             {receipt?.isMlc && (
@@ -641,38 +642,128 @@ function Field({ label, children, className = "" }: { label: string; children: R
   return <div className={`space-y-1.5 ${className}`}><Label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>{children}</div>;
 }
 
-function Receipt({ patient }: { patient: Patient }) {
+function Receipt({ patient, settings }: { patient: Patient; settings?: any }) {
+  const logoSrc = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg'
+    ? settings.logoUrl
+    : '/lifecare-logo.jpg';
+  let words = "";
+  try {
+    words = numberToWords.toWords(Math.round(patient.opdCharge || 0)).replace(/\b\w/g, (c) => c.toUpperCase());
+  } catch {
+    words = `${patient.opdCharge}`;
+  }
+  const dt = new Date(patient.registeredAt);
+
   return (
-    <div className="print-area space-y-4">
-      <div className="border-2 border-dashed rounded-lg p-3 text-center text-xs text-muted-foreground">
-        Hospital Letterhead — to be added
+    <div className="w-full max-w-[760px] mx-auto bg-white text-black font-sans p-4 border rounded-lg shadow-sm">
+      {/* Top Section Header */}
+      <div className="bg-[#4b4b4b] rounded-[30px] flex items-center justify-between h-[90px] relative mb-3 overflow-visible">
+        <div className="bg-white h-full w-[calc(100%-150px)] rounded-l-[30px] flex items-center justify-start p-1 box-border overflow-hidden">
+          <img src={logoSrc} alt="LifeCare Hospital" className="h-full w-auto max-w-full object-contain" />
+        </div>
+        <div className="bg-white w-[115px] h-[115px] rounded-full absolute right-3 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center text-center shadow-md border border-gray-100 z-10">
+          <span className="text-[11px] text-[#e53e3e] font-medium leading-tight">Help Line :</span>
+          <span className="text-xs font-bold text-[#e53e3e] leading-tight mt-0.5">{settings?.helpline || '7016124362'}</span>
+        </div>
       </div>
-      <div className="text-center">
-        <div className="text-xs uppercase tracking-widest text-muted-foreground">Patient Code</div>
-        <div className="text-3xl font-bold tracking-tight">{patient.code}</div>
+
+      {/* Address */}
+      <div className="text-center font-bold text-[11px] tracking-wide text-gray-800 uppercase mb-3">
+        {settings?.address || 'BHAVNATH PARK-2 , HARIDHAVA MAIN ROAD , RAJKOT'}
       </div>
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        <Line k="Name" v={patient.name} />
-        <Line k="Age / Gender" v={`${patient.age} / ${patient.gender}`} />
-        <Line k="Department" v={patient.department} />
-        <Line k="Doctor" v={patient.doctor} />
-        <Line k="Visit type" v={patient.type} />
-        {patient.type === "IPD" && (
-          <Line k="Wards" v={patient.wardHistory && patient.wardHistory.length > 0 
-            ? patient.wardHistory.map(w => `${w.ward || 'Unknown'} (${w.wardNumber || 'N/A'})`).join(", ")
-            : patient.ward ? `${patient.ward} (${patient.wardNumber || 'N/A'})` : "None"} />
-        )}
-        <Line k="Date" v={new Date(patient.registeredAt).toLocaleString()} />
+
+      {/* Title */}
+      <div className="text-center font-bold text-[#d32f2f] text-sm tracking-wider uppercase underline underline-offset-4 mb-3">
+        Registration & Consultation Receipt
       </div>
-      <div className="flex items-center justify-between border-t pt-3">
-        <div className="text-sm text-muted-foreground">OPD Charge</div>
-        <div className="text-lg font-semibold">₹ {patient.opdCharge.toFixed(2)}</div>
+
+      {/* Patient & Consultation Details Grid */}
+      <div className="border border-gray-400 rounded p-2.5 mb-3 text-[11px] grid grid-cols-2 gap-x-6 gap-y-1.5 bg-gray-50/50">
+        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
+          <span className="text-gray-600 font-medium">PATIENT:</span>
+          <span className="font-bold text-gray-900">{patient.name}</span>
+        </div>
+        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
+          <span className="text-gray-600 font-medium">PATIENT CODE:</span>
+          <span className="font-bold text-gray-900">{patient.code}</span>
+        </div>
+
+        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
+          <span className="text-gray-600 font-medium">AGE / SEX:</span>
+          <span className="font-semibold">{patient.age} Y / {patient.gender}</span>
+        </div>
+        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
+          <span className="text-gray-600 font-medium">DATE:</span>
+          <span className="font-semibold">{dt.toLocaleDateString()}</span>
+        </div>
+
+        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
+          <span className="text-gray-600 font-medium">DOCTOR:</span>
+          <span className="font-bold text-gray-900">{patient.doctor || "-"}</span>
+        </div>
+        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
+          <span className="text-gray-600 font-medium">TIME:</span>
+          <span className="font-semibold">{dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+
+        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
+          <span className="text-gray-600 font-medium">DEPT:</span>
+          <span className="font-semibold">{patient.department}</span>
+        </div>
+        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
+          <span className="text-gray-600 font-medium">VISIT TYPE:</span>
+          <span className="font-semibold">{patient.type}</span>
+        </div>
+
+        <div className="flex justify-between">
+          <span className="text-gray-600 font-medium">CITY / PHONE:</span>
+          <span className="font-semibold">{patient.city || "-"} {patient.phone ? `(${patient.phone})` : ""}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-gray-600 font-medium">STATUS:</span>
+          <span className="font-bold text-green-600">PAID</span>
+        </div>
+      </div>
+
+      {/* Charges Table */}
+      <div className="border border-gray-400 rounded overflow-hidden mb-2">
+        <table className="w-full text-[11px] text-left border-collapse">
+          <thead>
+            <tr className="bg-gray-100 border-b border-gray-400 text-gray-700">
+              <th className="py-1 px-2 border-r border-gray-400 w-10 text-center font-semibold">No.</th>
+              <th className="py-1 px-3 border-r border-gray-400 font-semibold">Description / Particulars</th>
+              <th className="py-1 px-3 border-r border-gray-400 w-32 font-semibold">Department</th>
+              <th className="py-1 px-3 text-right w-28 font-semibold">Amount (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-gray-300">
+              <td className="py-2 px-2 border-r border-gray-400 text-center align-top">1</td>
+              <td className="py-2 px-3 border-r border-gray-400">
+                <div className="font-bold text-gray-900">Registration & OPD Consultation Charge</div>
+                <div className="text-[10px] text-gray-500">Initial OPD patient visit & consultation fee</div>
+              </td>
+              <td className="py-2 px-3 border-r border-gray-400 align-top font-medium">{patient.department}</td>
+              <td className="py-2 px-3 text-right align-top font-bold text-gray-900">₹ {patient.opdCharge.toFixed(2)}</td>
+            </tr>
+            <tr className="bg-gray-50">
+              <td colSpan={2} className="py-1.5 px-3 border-r border-gray-400 text-[10px] italic text-gray-600">
+                Amount in Words: <span className="font-bold text-gray-800 not-italic">Rupees {words} Only</span>
+              </td>
+              <td className="py-1.5 px-3 border-r border-gray-400 font-bold text-right">
+                <div>Total:</div>
+                <div className="text-red-600">Paid:</div>
+              </td>
+              <td className="py-1.5 px-3 text-right font-bold">
+                <div>₹ {patient.opdCharge.toFixed(2)}</div>
+                <div className="text-red-600">₹ {patient.opdCharge.toFixed(2)}</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
-}
-function Line({ k, v }: { k: string; v: string }) {
-  return <div><div className="text-xs text-muted-foreground">{k}</div><div className="font-medium">{v}</div></div>;
 }
 
 const handlePrintReceipt = (patient: Patient, settings: any) => {
@@ -680,7 +771,9 @@ const handlePrintReceipt = (patient: Patient, settings: any) => {
   if (!printIframe) {
     printIframe = document.createElement("iframe");
     printIframe.id = "print-iframe";
-    printIframe.style.position = "absolute";
+    printIframe.style.position = "fixed";
+    printIframe.style.right = "0";
+    printIframe.style.bottom = "0";
     printIframe.style.width = "0";
     printIframe.style.height = "0";
     printIframe.style.border = "none";
@@ -688,115 +781,366 @@ const handlePrintReceipt = (patient: Patient, settings: any) => {
   }
   const printWindow = printIframe.contentWindow;
   if (!printWindow) return;
+
+  const logoSrc = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg'
+    ? settings.logoUrl
+    : '/lifecare-logo.jpg';
+
+  let words = "";
+  try {
+    words = numberToWords.toWords(Math.round(patient.opdCharge || 0)).replace(/\b\w/g, (c) => c.toUpperCase());
+  } catch {
+    words = `${patient.opdCharge}`;
+  }
+  const dt = new Date(patient.registeredAt);
+
   const content = `
+    <!DOCTYPE html>
     <html>
       <head>
         <title>Receipt - ${patient.code}</title>
         <style>
-          @page { margin: 0; }
-          body { font-family: system-ui, -apple-system, sans-serif; padding: 40px; margin: 0; color: #333; line-height: 1.5; }
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          .header-img { width: 100%; max-height: 130px; object-fit: contain; margin-bottom: 10px; }
-          .hospital-address-bar { text-align: center; font-size: 14px; font-weight: 700; color: #444; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
-          
-          .watermark { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.10; z-index: -1; pointer-events: none; width: 100%; display: flex; justify-content: center; align-items: center; }
-          .watermark img { width: 80%; max-width: 600px; object-fit: contain; transform: rotate(-12deg); }
+          @page {
+            size: 80mm auto;
+            margin: 2mm 3mm;
+          }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body {
+            font-family: 'Courier New', Courier, monospace;
+            color: #000;
+            background: #fff;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            line-height: 1.3;
+            font-size: 11px;
+            width: 76mm;
+            max-width: 76mm;
+            margin: 0 auto;
+            padding: 2mm 0;
+          }
 
-          .divider { border: 0; border-bottom: 2px solid #333; margin: 15px 0; }
-          
-          .patient-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px; font-size: 13px; }
-          .info-group { margin-bottom: 10px; }
-          .info-label { color: #666; margin-bottom: 2px; }
-          .info-value { font-weight: bold; font-size: 14px; color: #000; }
-          
-          .section-title { font-size: 16px; font-weight: bold; text-transform: uppercase; color: #d32f2f; margin-top: 20px; margin-bottom: 15px; font-style: italic; }
-          
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
-          th { font-weight: bold; text-align: left; padding: 8px 4px; border-bottom: 1px solid #ccc; color: #000; }
-          td { padding: 8px 4px; border-bottom: 1px solid #eee; }
-          .text-right { text-align: right; }
-          .text-center { text-align: center; }
-          
-          .totals-table { width: 40%; margin-left: auto; margin-top: 20px; border: none; }
-          .totals-table td { padding: 6px 4px; border: none; text-align: right; }
-          .totals-table .grand-total { font-weight: bold; font-size: 16px; color: #000; }
-          
-          .footer-helpline { text-align: center; color: #d32f2f; font-weight: bold; margin-top: 50px; font-size: 18px; text-transform: uppercase; }
+          /* ── Header / Logo ── */
+          .pos-header {
+            text-align: center;
+            padding-bottom: 4px;
+            margin-bottom: 2px;
+          }
+          .logo-helpline-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 4px;
+          }
+          .pos-logo {
+            max-height: 45px;
+            max-width: 140px;
+            object-fit: contain;
+          }
+          .helpline-badge {
+            border: 1.5px solid #000;
+            border-radius: 50%;
+            width: 58px;
+            height: 58px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+          }
+          .helpline-badge .hl-label {
+            font-size: 6px;
+            font-weight: bold;
+            letter-spacing: 0.3px;
+          }
+          .helpline-badge .hl-num {
+            font-size: 7.5px;
+            font-weight: bold;
+          }
+          .pos-hospital-name {
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 1px;
+          }
+          .pos-address {
+            font-size: 8px;
+            color: #333;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+          }
+
+          /* ── Separators ── */
+          .dash-line {
+            border: none;
+            border-top: 1px dashed #000;
+            margin: 4px 0;
+          }
+          .double-line {
+            border: none;
+            border-top: 2px double #000;
+            margin: 4px 0;
+          }
+          .star-line {
+            text-align: center;
+            font-size: 9px;
+            letter-spacing: 2px;
+            margin: 3px 0;
+          }
+
+          /* ── Title ── */
+          .pos-title {
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 3px 0;
+          }
+
+          /* ── Receipt No / Date row ── */
+          .receipt-meta {
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            padding: 1px 0;
+          }
+
+          /* ── Detail rows ── */
+          .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 1.5px 0;
+            font-size: 10px;
+          }
+          .detail-row .lbl {
+            color: #333;
+            flex-shrink: 0;
+          }
+          .detail-row .val {
+            font-weight: bold;
+            text-align: right;
+            word-break: break-word;
+            max-width: 55%;
+          }
+
+          /* ── Items table ── */
+          .items-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 9px;
+            padding: 2px 0;
+            text-transform: uppercase;
+          }
+          .item-row {
+            padding: 3px 0;
+            font-size: 10px;
+          }
+          .item-name {
+            font-weight: bold;
+          }
+          .item-desc {
+            font-size: 8px;
+            color: #555;
+            padding-left: 8px;
+          }
+          .item-amount-row {
+            display: flex;
+            justify-content: space-between;
+            padding-left: 8px;
+            font-size: 10px;
+          }
+
+          /* ── Totals ── */
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 0;
+          }
+          .grand-total {
+            font-size: 13px;
+            font-weight: bold;
+          }
+          .paid-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 1px 0;
+          }
+
+          /* ── Words ── */
+          .amount-words {
+            font-size: 8px;
+            font-style: italic;
+            text-align: center;
+            padding: 3px 0;
+            color: #333;
+          }
+          .amount-words strong {
+            font-style: normal;
+            color: #000;
+          }
+
+          /* ── Footer ── */
+          .pos-footer {
+            text-align: center;
+            font-size: 8px;
+            color: #555;
+            padding-top: 4px;
+          }
+          .pos-footer .thank-you {
+            font-size: 11px;
+            font-weight: bold;
+            color: #000;
+            margin-bottom: 2px;
+          }
+          .pos-footer .get-well {
+            font-size: 9px;
+            margin-bottom: 3px;
+          }
+
+          .status-badge {
+            display: inline-block;
+            border: 1.5px solid #000;
+            padding: 1px 10px;
+            font-size: 10px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin: 2px auto;
+          }
         </style>
       </head>
       <body>
-        <div class="watermark">
-          ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Watermark" />` : ''}
+        <!-- Header with Logo -->
+        <div class="pos-header">
+          <div class="logo-helpline-row">
+            <img src="${logoSrc}" alt="Logo" class="pos-logo" />
+            <div class="helpline-badge">
+              <span class="hl-label">HELPLINE</span>
+              <span class="hl-num">${settings?.helpline || '7016124362'}</span>
+            </div>
+          </div>
+          <div class="pos-address">${settings?.address || 'BHAVNATH PARK-2, HARIDHAVA MAIN ROAD, RAJKOT'}</div>
         </div>
-        <img src="${settings?.logoUrl && settings.logoUrl !== '/logo.png' ? settings.logoUrl : '/logo.jpg'}" class="header-img" alt="Logo" onerror="this.src='/lifecare-logo.jpg'" />
-        ${settings?.address ? `<div class="hospital-address-bar">${settings.address}</div>` : ''}
-        
-        <div class="patient-grid">
-          <div>
-            <div class="info-group">
-              <div class="info-label">Patient Code</div>
-              <div class="info-value">${patient.code}</div>
-            </div>
-            <div class="info-group">
-              <div class="info-label">Patient Name</div>
-              <div class="info-value">${patient.name}</div>
-            </div>
-          </div>
-          <div>
-            <div class="info-group">
-              <div class="info-label">Age / Gender</div>
-              <div class="info-value">${patient.age} / ${patient.gender}</div>
-            </div>
-            <div class="info-group">
-              <div class="info-label">Department</div>
-              <div class="info-value">${patient.department}</div>
-            </div>
-          </div>
-          <div>
-            <div class="info-group">
-              <div class="info-label">Date</div>
-              <div class="info-value">${new Date(patient.registeredAt).toLocaleDateString()}</div>
-            </div>
-            <div class="info-group">
-              <div class="info-label">Doctor</div>
-              <div class="info-value">${patient.doctor || "-"}</div>
-            </div>
-            ${patient.type === "IPD" ? `
-            <div class="info-group">
-              <div class="info-label">Wards</div>
-              <div class="info-value">${patient.wardHistory && patient.wardHistory.length > 0
-                ? patient.wardHistory.map(w => `${w.ward || 'Unknown'} (${w.wardNumber || 'N/A'})`).join(", ")
-                : patient.ward ? `${patient.ward} (${patient.wardNumber || 'N/A'})` : "None"
-              }</div>
-            </div>
-            ` : ''}
+
+        <hr class="double-line" />
+
+        <!-- Title -->
+        <div class="pos-title">RECEIPT</div>
+
+        <hr class="dash-line" />
+
+        <!-- Receipt Meta -->
+        <div class="receipt-meta">
+          <span>Receipt#: <strong>${patient.code}</strong></span>
+          <span>${dt.toLocaleDateString()}</span>
+        </div>
+        <div class="receipt-meta">
+          <span>Time: ${dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          <span>Type: <strong>${patient.type}</strong></span>
+        </div>
+
+        <hr class="dash-line" />
+
+        <!-- Patient Details -->
+        <div class="detail-row">
+          <span class="lbl">PATIENT</span>
+          <span class="val">${patient.name}</span>
+        </div>
+        <div class="detail-row">
+          <span class="lbl">AGE / SEX</span>
+          <span class="val">${patient.age} Y / ${patient.gender}</span>
+        </div>
+        <div class="detail-row">
+          <span class="lbl">DOCTOR</span>
+          <span class="val">${patient.doctor || "-"}</span>
+        </div>
+        <div class="detail-row">
+          <span class="lbl">DEPT</span>
+          <span class="val">${patient.department}</span>
+        </div>
+        <div class="detail-row">
+          <span class="lbl">CITY / PH</span>
+          <span class="val">${patient.city || "-"} (${patient.phone || "-"})</span>
+        </div>
+
+        <hr class="double-line" />
+
+        <!-- Items Header -->
+        <div class="items-header">
+          <span>ITEM</span>
+          <span>AMOUNT</span>
+        </div>
+        <hr class="dash-line" />
+
+        <!-- Item -->
+        <div class="item-row">
+          <div class="item-name">1. Reg & OPD Consultation</div>
+          <div class="item-desc">Dept: ${patient.department}</div>
+          <div class="item-amount-row">
+            <span>Consultation Fee</span>
+            <span style="font-weight:bold;">Rs.${patient.opdCharge.toFixed(2)}</span>
           </div>
         </div>
-        
-        <hr class="divider" />
-        <div class="section-title">Registration Receipt</div>
-        
-        <table>
-          <thead>
-            <tr>
-              <th>Description</th>
-              <th class="text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>OPD Consultation Charge (${patient.type})</td>
-              <td class="text-right">₹ ${patient.opdCharge.toFixed(2)}</td>
-            </tr>
-          </tbody>
-        </table>
-        
-        ${settings?.helpline ? `<div class="footer-helpline">HELP LINE :- ${settings.helpline}</div>` : ''}
-        
+
+        <hr class="dash-line" />
+
+        <!-- Totals -->
+        <div class="total-row">
+          <span>SUBTOTAL</span>
+          <span>Rs.${patient.opdCharge.toFixed(2)}</span>
+        </div>
+        <div class="total-row grand-total">
+          <span>TOTAL</span>
+          <span>Rs.${patient.opdCharge.toFixed(2)}</span>
+        </div>
+
+        <hr class="double-line" />
+
+        <div class="paid-row">
+          <span>PAID (CASH)</span>
+          <span>Rs.${patient.opdCharge.toFixed(2)}</span>
+        </div>
+        <div class="paid-row">
+          <span>BALANCE DUE</span>
+          <span>Rs.0.00</span>
+        </div>
+
+        <hr class="dash-line" />
+
+        <!-- Amount in words -->
+        <div class="amount-words">
+          Amount: <strong>Rupees ${words} Only</strong>
+        </div>
+
+        <hr class="dash-line" />
+
+        <!-- Status -->
+        <div style="text-align:center; padding: 4px 0;">
+          <span class="status-badge">✓ PAID</span>
+        </div>
+
+        <hr class="dash-line" />
+
+        <!-- Footer -->
+        <div class="pos-footer">
+          <div class="thank-you">THANK YOU!</div>
+          <div class="get-well">Get Well Soon 🙏</div>
+          <div>This is a computer generated receipt</div>
+          <div>No signature required</div>
+        </div>
+
+        <div class="star-line">********************************</div>
+
         <script>
           setTimeout(function() {
             window.print();
-          }, 250);
+          }, 300);
         </script>
       </body>
     </html>
