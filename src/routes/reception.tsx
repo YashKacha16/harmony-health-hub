@@ -10,7 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useDB } from "@/lib/useStore";
@@ -20,25 +26,48 @@ import type { PastOperation, Patient } from "@/lib/store";
 import numberToWords from "number-to-words";
 
 export const Route = createFileRoute("/reception")({
-  head: () => ({ meta: [{ title: "Reception — MediCore HMS" }, { name: "description", content: "Patient registration and receipt generation." }] }),
+  head: () => ({
+    meta: [
+      { title: "Reception — MediCore HMS" },
+      { name: "description", content: "Patient registration and receipt generation." },
+    ],
+  }),
   component: () => (
     <RequireAuth module="Reception" action="Access">
-      <AppShell><ReceptionPage /></AppShell>
+      <AppShell>
+        <ReceptionPage />
+      </AppShell>
     </RequireAuth>
   ),
 });
 
 interface Draft {
-  name: string; phone: string; age: string; gender: "Male" | "Female" | "Other";
-  weight: string; height: string; caste: string;
-  addressLine: string; state: string; city: string; pincode: string;
+  name: string;
+  phone: string;
+  age: string;
+  gender: "Male" | "Female" | "Other";
+  weight: string;
+  height: string;
+  caste: string;
+  addressLine: string;
+  state: string;
+  city: string;
+  pincode: string;
   type: "OPD" | "IPD" | "FollowUp";
-  department: string; doctor: string; opdCharge: string;
-  hasAllergy: boolean; allergy: string; 
-  hasDeformity: boolean; deformity: string; complaint: string;
-  mediclaim: boolean; insuranceCompany: string; policyNumber: string;
-  hasPastOps: boolean; pastOperations: PastOperation[];
-  wardHistory: { ward: string; wardNumber: string; }[];
+  department: string;
+  doctor: string;
+  opdCharge: string;
+  hasAllergy: boolean;
+  allergy: string;
+  hasDeformity: boolean;
+  deformity: string;
+  complaint: string;
+  mediclaim: boolean;
+  insuranceCompany: string;
+  policyNumber: string;
+  hasPastOps: boolean;
+  pastOperations: PastOperation[];
+  wardHistory: { ward: string; wardNumber: string }[];
   relativeName?: string;
   relation?: string;
   relativePhone?: string;
@@ -75,21 +104,52 @@ function ReceptionPage() {
   }, []);
 
   const initial: Draft = {
-    name: "", phone: "", age: "", gender: "Male",
-    weight: "", height: "", caste: "",
-    addressLine: "", state: "", city: "", pincode: "",
+    name: "",
+    phone: "",
+    age: "",
+    gender: "Male",
+    weight: "",
+    height: "",
+    caste: "",
+    addressLine: "",
+    state: "",
+    city: "",
+    pincode: "",
     type: "OPD",
-    department: db.departments[0]?.name || "", doctor: "", opdCharge: String(opdCharge),
-    hasAllergy: false, allergy: "", 
-    hasDeformity: false, deformity: "", complaint: "",
-    mediclaim: false, insuranceCompany: "", policyNumber: "",
-    hasPastOps: false, pastOperations: [],
+    department: db.departments[0]?.name || "",
+    doctor: "",
+    opdCharge: String(opdCharge),
+    hasAllergy: false,
+    allergy: "",
+    hasDeformity: false,
+    deformity: "",
+    complaint: "",
+    mediclaim: false,
+    insuranceCompany: "",
+    policyNumber: "",
+    hasPastOps: false,
+    pastOperations: [],
     wardHistory: [{ ward: "", wardNumber: "" }],
-    relativeName: "", relation: "", relativePhone: "", relativeAddress: "",
-    maritalStatus: "", child: "", occupation: "", religion: "",
-    isMlc: false, mlcDrIncharge: "", mlcMedicalOfficer: "", mlcDetailOfMatter: "",
-    mlcDateOfMatter: "", mlcTimeOfMatter: "", mlcCauseOfMatter: "", mlcPlaceOfMatter: "",
-    mlcAnyOfHospitalisedPastHO: "", mlcCurrentCondition: "", mlcNameOfFiller: "", mlcFillerMoNo: "",
+    relativeName: "",
+    relation: "",
+    relativePhone: "",
+    relativeAddress: "",
+    maritalStatus: "",
+    child: "",
+    occupation: "",
+    religion: "",
+    isMlc: false,
+    mlcDrIncharge: "",
+    mlcMedicalOfficer: "",
+    mlcDetailOfMatter: "",
+    mlcDateOfMatter: "",
+    mlcTimeOfMatter: "",
+    mlcCauseOfMatter: "",
+    mlcPlaceOfMatter: "",
+    mlcAnyOfHospitalisedPastHO: "",
+    mlcCurrentCondition: "",
+    mlcNameOfFiller: "",
+    mlcFillerMoNo: "",
   };
 
   const [d, setD] = useState<Draft>(cachedDraft || initial);
@@ -117,13 +177,20 @@ function ReceptionPage() {
     if (d.phone.length !== 10) return toast.error("Phone number must be exactly 10 digits");
     if (!d.department || !d.doctor) return toast.error("Select department and doctor");
     const patient = await receptionService.registerPatient({
-      name: d.name, phone: d.phone, age: Number(d.age), gender: d.gender,
+      name: d.name,
+      phone: d.phone,
+      age: Number(d.age),
+      gender: d.gender,
       weight: d.weight ? Number(d.weight) : undefined,
       height: d.height ? Number(d.height) : undefined,
       caste: d.caste || undefined,
-      addressLine: d.addressLine, state: d.state, city: d.city, pincode: d.pincode,
+      addressLine: d.addressLine,
+      state: d.state,
+      city: d.city,
+      pincode: d.pincode,
       type: d.type === "FollowUp" ? "OPD" : d.type,
-      department: d.department, doctor: d.doctor,
+      department: d.department,
+      doctor: d.doctor,
       opdCharge: Number(d.opdCharge) || 0,
       allergy: d.hasAllergy ? d.allergy : undefined,
       deformity: d.hasDeformity ? d.deformity : undefined,
@@ -132,9 +199,21 @@ function ReceptionPage() {
       insuranceCompany: d.mediclaim ? d.insuranceCompany : undefined,
       policyNumber: d.mediclaim ? d.policyNumber : undefined,
       pastOperations: d.hasPastOps ? d.pastOperations : undefined,
-      ward: (d.type === "IPD" && d.wardHistory.length > 0) ? d.wardHistory.map(w => w.ward).filter(Boolean).join(" & ") : undefined,
-      wardNumber: (d.type === "IPD" && d.wardHistory.length > 0) ? d.wardHistory.map(w => w.wardNumber).filter(Boolean).join(" & ") : undefined,
-      wardHistory: d.type === "IPD" ? d.wardHistory.filter(w => w.ward) : undefined,
+      ward:
+        d.type === "IPD" && d.wardHistory.length > 0
+          ? d.wardHistory
+              .map((w) => w.ward)
+              .filter(Boolean)
+              .join(" & ")
+          : undefined,
+      wardNumber:
+        d.type === "IPD" && d.wardHistory.length > 0
+          ? d.wardHistory
+              .map((w) => w.wardNumber)
+              .filter(Boolean)
+              .join(" & ")
+          : undefined,
+      wardHistory: d.type === "IPD" ? d.wardHistory.filter((w) => w.ward) : undefined,
       relativeName: d.type === "IPD" ? d.relativeName : undefined,
       relation: d.type === "IPD" ? d.relation : undefined,
       relativePhone: d.type === "IPD" ? d.relativePhone : undefined,
@@ -196,14 +275,16 @@ function ReceptionPage() {
       // Refresh patient to get full details including past operations if needed
       const fullPatient = await receptionService.findByCode(p.code);
       const patientData = fullPatient || p;
-      
+
       const validityMonths = db.hospitalSettings?.followUpValidityMonths || 3;
       const registeredDate = new Date(patientData.registeredAt);
       const validityDate = new Date(registeredDate);
       validityDate.setMonth(validityDate.getMonth() + validityMonths);
-      
+
       if (new Date() > validityDate) {
-        return toast.error(`Follow-up validity period (${validityMonths} months) has expired for this patient.`);
+        return toast.error(
+          `Follow-up validity period (${validityMonths} months) has expired for this patient.`,
+        );
       }
 
       setD({
@@ -255,13 +336,13 @@ function ReceptionPage() {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!showResults || searchResults.length === 0) return;
-    
+
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelectedIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : prev));
+      setSelectedIndex((prev) => (prev < searchResults.length - 1 ? prev + 1 : prev));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setSelectedIndex(prev => (prev > 0 ? prev - 1 : 0));
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (selectedIndex >= 0 && selectedIndex < searchResults.length) {
@@ -274,13 +355,21 @@ function ReceptionPage() {
     }
   };
 
-  const addOp = () => set("pastOperations", [...d.pastOperations, { type: "", bodyPart: "", place: "", deformity: "" }]);
+  const addOp = () =>
+    set("pastOperations", [
+      ...d.pastOperations,
+      { type: "", bodyPart: "", place: "", deformity: "" },
+    ]);
   const updOp = (i: number, k: keyof PastOperation, v: string) => {
     const arr = [...d.pastOperations];
     arr[i] = { ...arr[i], [k]: v };
     set("pastOperations", arr);
   };
-  const rmOp = (i: number) => set("pastOperations", d.pastOperations.filter((_, idx) => idx !== i));
+  const rmOp = (i: number) =>
+    set(
+      "pastOperations",
+      d.pastOperations.filter((_, idx) => idx !== i),
+    );
 
   const addWard = () => {
     if (d.wardHistory.length < 2) {
@@ -292,24 +381,33 @@ function ReceptionPage() {
     arr[i] = { ...arr[i], [k]: v };
     set("wardHistory", arr);
   };
-  const rmWard = (i: number) => set("wardHistory", d.wardHistory.filter((_, idx) => idx !== i));
+  const rmWard = (i: number) =>
+    set(
+      "wardHistory",
+      d.wardHistory.filter((_, idx) => idx !== i),
+    );
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">Patient Registration</h2>
-          <p className="text-sm text-muted-foreground">Register new patients and generate their receipt.</p>
+          <p className="text-sm text-muted-foreground">
+            Register new patients and generate their receipt.
+          </p>
         </div>
       </div>
 
-      <Tabs value={d.type} onValueChange={(v) => {
-        set("type", v as "OPD" | "IPD" | "FollowUp");
-        if (v !== "FollowUp") {
-          setSearchQuery("");
-          setSearchResults([]);
-        }
-      }}>
+      <Tabs
+        value={d.type}
+        onValueChange={(v) => {
+          set("type", v as "OPD" | "IPD" | "FollowUp");
+          if (v !== "FollowUp") {
+            setSearchQuery("");
+            setSearchResults([]);
+          }
+        }}
+      >
         <TabsList className="mb-4">
           <TabsTrigger value="OPD">OPD Registration</TabsTrigger>
           <TabsTrigger value="IPD">IPD Registration</TabsTrigger>
@@ -321,9 +419,9 @@ function ReceptionPage() {
             {d.type === "FollowUp" && (
               <Section title="Search Patient">
                 <div className="relative max-w-sm">
-                  <Input 
-                    placeholder="Search by name or code..." 
-                    value={searchQuery} 
+                  <Input
+                    placeholder="Search by name or code..."
+                    value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
                       setShowResults(true);
@@ -335,12 +433,14 @@ function ReceptionPage() {
                   {showResults && searchQuery && (
                     <div className="absolute z-10 w-full mt-1 bg-popover text-popover-foreground rounded-md border shadow-md overflow-hidden">
                       {isSearching ? (
-                        <div className="p-3 text-sm text-center text-muted-foreground">Searching...</div>
+                        <div className="p-3 text-sm text-center text-muted-foreground">
+                          Searching...
+                        </div>
                       ) : searchResults.length > 0 ? (
                         <div className="max-h-60 overflow-auto">
                           {searchResults.map((p, idx) => (
-                            <div 
-                              key={p.id} 
+                            <div
+                              key={p.id}
                               className={`px-3 py-2 cursor-pointer hover:bg-muted text-sm border-b last:border-0 ${selectedIndex === idx ? "bg-muted font-medium" : ""}`}
                               onMouseDown={(e) => {
                                 e.preventDefault();
@@ -348,12 +448,16 @@ function ReceptionPage() {
                               }}
                             >
                               <div className="font-medium">{p.name}</div>
-                              <div className="text-xs text-muted-foreground">{p.code} • {p.phone}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {p.code} • {p.phone}
+                              </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <div className="p-3 text-sm text-center text-muted-foreground">No patients found.</div>
+                        <div className="p-3 text-sm text-center text-muted-foreground">
+                          No patients found.
+                        </div>
                       )}
                     </div>
                   )}
@@ -362,211 +466,436 @@ function ReceptionPage() {
             )}
 
             <Section title="Personal details">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Field label="Patient name *"><Input value={d.name} onChange={(e) => set("name", e.target.value)} /></Field>
-              <Field label="Phone *"><Input value={d.phone} maxLength={10} onChange={(e) => set("phone", e.target.value.replace(/\D/g, ''))} /></Field>
-              <Field label="Age *"><Input type="number" value={d.age} onChange={(e) => set("age", e.target.value)} /></Field>
-              <Field label="Gender">
-                <Select value={d.gender} onValueChange={(v) => set("gender", v as Draft["gender"])}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Male">Male</SelectItem>
-                    <SelectItem value="Female">Female</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Weight (kg)"><Input type="number" value={d.weight} onChange={(e) => set("weight", e.target.value)} /></Field>
-              <Field label="Height (cm)"><Input type="number" value={d.height} onChange={(e) => set("height", e.target.value)} /></Field>
-              <Field label="Caste">
-                <Select value={d.caste} onValueChange={(v) => set("caste", v)}>
-                  <SelectTrigger><SelectValue placeholder="Select caste" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="General">General</SelectItem>
-                    <SelectItem value="OBC">OBC</SelectItem>
-                    <SelectItem value="SC">SC</SelectItem>
-                    <SelectItem value="ST">ST</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              {d.type === "IPD" && (
-                <>
-                  <Field label="Marital Status">
-                    <Select value={d.maritalStatus} onValueChange={(v) => set("maritalStatus", v)}>
-                      <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Single">Single</SelectItem>
-                        <SelectItem value="Married">Married</SelectItem>
-                        <SelectItem value="Divorced">Divorced</SelectItem>
-                        <SelectItem value="Widowed">Widowed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="Child"><Input value={d.child} onChange={(e) => set("child", e.target.value)} placeholder="No. of children" /></Field>
-                  <Field label="Occupation"><Input value={d.occupation} onChange={(e) => set("occupation", e.target.value)} /></Field>
-                  <Field label="Religion"><Input value={d.religion} onChange={(e) => set("religion", e.target.value)} /></Field>
-                </>
-              )}
-            </div>
-          </Section>
-
-          <Section title="Address">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <Field label="Address line" className="lg:col-span-2"><Input value={d.addressLine} onChange={(e) => set("addressLine", e.target.value)} /></Field>
-              <Field label="City"><Input value={d.city} onChange={(e) => set("city", e.target.value)} /></Field>
-              <Field label="State"><Input value={d.state} onChange={(e) => set("state", e.target.value)} /></Field>
-            </div>
-          </Section>
-
-          {(d.type === "OPD" || d.type === "FollowUp") && (
-            <Section title="OPD details">
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Field label="Department">
-                <Select value={d.department} onValueChange={(v) => { set("department", v); set("doctor", ""); }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{db.departments.map((x) => <SelectItem key={x.id} value={x.name}>{x.name}</SelectItem>)}</SelectContent>
-                </Select>
-              </Field>
-              <Field label="Doctor">
-                <Select value={d.doctor} onValueChange={(v) => set("doctor", v)}>
-                  <SelectTrigger><SelectValue placeholder="Select doctor" /></SelectTrigger>
-                  <SelectContent>
-                    {doctors.length === 0
-                      ? <SelectItem value="__none" disabled>No doctors in this department</SelectItem>
-                      : doctors.map((doc) => <SelectItem key={doc.id} value={doc.name}>{doc.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="OPD Charge">
-                <Select value={d.opdCharge} onValueChange={(v) => set("opdCharge", v)}>
-                  <SelectTrigger><SelectValue placeholder="Select charge" /></SelectTrigger>
-                  <SelectContent>
-                    {db.charges.map((c) => (
-                      <SelectItem key={c.id} value={c.amount.toString()}>
-                        {c.name} (₹{c.amount})
-                      </SelectItem>
-                    ))}
-                    {db.charges.length === 0 && <SelectItem value="0" disabled>No charges available</SelectItem>}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-          </Section>
-          )}
-
-          {d.type === "IPD" && (
-            <Section title="IPD details">
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Field label="Department">
-                  <Select value={d.department} onValueChange={(v) => { set("department", v); set("doctor", ""); }}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>{db.departments.map((x) => <SelectItem key={x.id} value={x.name}>{x.name}</SelectItem>)}</SelectContent>
-                  </Select>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Field label="Patient name *">
+                  <Input value={d.name} onChange={(e) => set("name", e.target.value)} />
                 </Field>
-                <Field label="Doctor">
-                  <Select value={d.doctor} onValueChange={(v) => set("doctor", v)}>
-                    <SelectTrigger><SelectValue placeholder="Select doctor" /></SelectTrigger>
+                <Field label="Phone *">
+                  <Input
+                    value={d.phone}
+                    maxLength={10}
+                    onChange={(e) => set("phone", e.target.value.replace(/\D/g, ""))}
+                  />
+                </Field>
+                <Field label="Age *">
+                  <Input type="number" value={d.age} onChange={(e) => set("age", e.target.value)} />
+                </Field>
+                <Field label="Gender">
+                  <Select
+                    value={d.gender}
+                    onValueChange={(v) => set("gender", v as Draft["gender"])}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
-                      {doctors.length === 0
-                        ? <SelectItem value="__none" disabled>No doctors in this department</SelectItem>
-                        : doctors.map((doc) => <SelectItem key={doc.id} value={doc.name}>{doc.name}</SelectItem>)}
+                      <SelectItem value="Male">Male</SelectItem>
+                      <SelectItem value="Female">Female</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
                     </SelectContent>
                   </Select>
                 </Field>
-              </div>
-              <div className="mt-3 space-y-3">
-                <div className="font-medium text-sm text-muted-foreground mb-2">Wards (Max 2)</div>
-                {d.wardHistory.map((wh, i) => (
-                  <div key={i} className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end rounded-lg border p-3 bg-muted/30">
-                    <Field label="Ward" className="lg:col-span-2">
-                      <Select value={wh.ward} onValueChange={(v) => updWard(i, "ward", v)}>
-                        <SelectTrigger><SelectValue placeholder="Select ward" /></SelectTrigger>
+                <Field label="Weight (kg)">
+                  <Input
+                    type="number"
+                    value={d.weight}
+                    onChange={(e) => set("weight", e.target.value)}
+                  />
+                </Field>
+                <Field label="Height (cm)">
+                  <Input
+                    type="number"
+                    value={d.height}
+                    onChange={(e) => set("height", e.target.value)}
+                  />
+                </Field>
+                <Field label="Caste">
+                  <Select value={d.caste} onValueChange={(v) => set("caste", v)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select caste" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="General">General</SelectItem>
+                      <SelectItem value="OBC">OBC</SelectItem>
+                      <SelectItem value="SC">SC</SelectItem>
+                      <SelectItem value="ST">ST</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                {d.type === "IPD" && (
+                  <>
+                    <Field label="Marital Status">
+                      <Select
+                        value={d.maritalStatus}
+                        onValueChange={(v) => set("maritalStatus", v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
                         <SelectContent>
-                          {db.ipdWards?.map((w) => (
-                            <SelectItem key={w.id} value={w.name}>{w.name}</SelectItem>
-                          ))}
-                          {(!db.ipdWards || db.ipdWards.length === 0) && <SelectItem value="__none" disabled>No wards configured</SelectItem>}
+                          <SelectItem value="Single">Single</SelectItem>
+                          <SelectItem value="Married">Married</SelectItem>
+                          <SelectItem value="Divorced">Divorced</SelectItem>
+                          <SelectItem value="Widowed">Widowed</SelectItem>
                         </SelectContent>
                       </Select>
                     </Field>
-                    <Field label="Ward Number" className="lg:col-span-2">
-                      <Input value={wh.wardNumber} onChange={(e) => updWard(i, "wardNumber", e.target.value)} placeholder="e.g. W-12" />
+                    <Field label="Child">
+                      <Input
+                        value={d.child}
+                        onChange={(e) => set("child", e.target.value)}
+                        placeholder="No. of children"
+                      />
                     </Field>
-                    <div className="flex gap-2 h-[36px]">
-                      {d.wardHistory.length > 1 && (
-                        <Button variant="ghost" size="icon" onClick={() => rmWard(i)}><Trash2 className="h-4 w-4" /></Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {d.wardHistory.length < 2 && (
-                  <Button variant="outline" size="sm" onClick={addWard}><Plus className="h-4 w-4 mr-1" /> Add Ward</Button>
+                    <Field label="Occupation">
+                      <Input
+                        value={d.occupation}
+                        onChange={(e) => set("occupation", e.target.value)}
+                      />
+                    </Field>
+                    <Field label="Religion">
+                      <Input value={d.religion} onChange={(e) => set("religion", e.target.value)} />
+                    </Field>
+                  </>
                 )}
               </div>
             </Section>
-          )}
 
-          {d.type === "IPD" && (
-            <Section title="Relative details">
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Field label="Relative Name"><Input value={d.relativeName} onChange={(e) => set("relativeName", e.target.value)} /></Field>
-                <Field label="Relation"><Input value={d.relation} onChange={(e) => set("relation", e.target.value)} /></Field>
-                <Field label="Mobile No. of Relative"><Input value={d.relativePhone} maxLength={10} onChange={(e) => set("relativePhone", e.target.value.replace(/\D/g, ''))} /></Field>
-                <Field label="Relative Address" className="lg:col-span-3"><Input value={d.relativeAddress} onChange={(e) => set("relativeAddress", e.target.value)} /></Field>
+            <Section title="Address">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Field label="Address line" className="lg:col-span-2">
+                  <Input
+                    value={d.addressLine}
+                    onChange={(e) => set("addressLine", e.target.value)}
+                  />
+                </Field>
+                <Field label="City">
+                  <Input value={d.city} onChange={(e) => set("city", e.target.value)} />
+                </Field>
+                <Field label="State">
+                  <Input value={d.state} onChange={(e) => set("state", e.target.value)} />
+                </Field>
               </div>
             </Section>
-          )}
 
-          <Section title="Medical history">
+            {(d.type === "OPD" || d.type === "FollowUp") && (
+              <Section title="OPD details">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <Field label="Department">
+                    <Select
+                      value={d.department}
+                      onValueChange={(v) => {
+                        set("department", v);
+                        set("doctor", "");
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {db.departments.map((x) => (
+                          <SelectItem key={x.id} value={x.name}>
+                            {x.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Doctor">
+                    <Select value={d.doctor} onValueChange={(v) => set("doctor", v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select doctor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {doctors.length === 0 ? (
+                          <SelectItem value="__none" disabled>
+                            No doctors in this department
+                          </SelectItem>
+                        ) : (
+                          doctors.map((doc) => (
+                            <SelectItem key={doc.id} value={doc.name}>
+                              {doc.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="OPD Charge">
+                    <Select value={d.opdCharge} onValueChange={(v) => set("opdCharge", v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select charge" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {db.charges.map((c) => (
+                          <SelectItem key={c.id} value={c.amount.toString()}>
+                            {c.name} (₹{c.amount})
+                          </SelectItem>
+                        ))}
+                        {db.charges.length === 0 && (
+                          <SelectItem value="0" disabled>
+                            No charges available
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+              </Section>
+            )}
+
+            {d.type === "IPD" && (
+              <Section title="IPD details">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Field label="Department">
+                    <Select
+                      value={d.department}
+                      onValueChange={(v) => {
+                        set("department", v);
+                        set("doctor", "");
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {db.departments.map((x) => (
+                          <SelectItem key={x.id} value={x.name}>
+                            {x.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Doctor">
+                    <Select value={d.doctor} onValueChange={(v) => set("doctor", v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select doctor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {doctors.length === 0 ? (
+                          <SelectItem value="__none" disabled>
+                            No doctors in this department
+                          </SelectItem>
+                        ) : (
+                          doctors.map((doc) => (
+                            <SelectItem key={doc.id} value={doc.name}>
+                              {doc.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+                <div className="mt-3 space-y-3">
+                  <div className="font-medium text-sm text-muted-foreground mb-2">
+                    Wards (Max 2)
+                  </div>
+                  {d.wardHistory.map((wh, i) => (
+                    <div
+                      key={i}
+                      className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end rounded-lg border p-3 bg-muted/30"
+                    >
+                      <Field label="Ward" className="lg:col-span-2">
+                        <Select value={wh.ward} onValueChange={(v) => updWard(i, "ward", v)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select ward" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {db.ipdWards?.map((w) => (
+                              <SelectItem key={w.id} value={w.name}>
+                                {w.name}
+                              </SelectItem>
+                            ))}
+                            {(!db.ipdWards || db.ipdWards.length === 0) && (
+                              <SelectItem value="__none" disabled>
+                                No wards configured
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                      <Field label="Ward Number" className="lg:col-span-2">
+                        <Input
+                          value={wh.wardNumber}
+                          onChange={(e) => updWard(i, "wardNumber", e.target.value)}
+                          placeholder="e.g. W-12"
+                        />
+                      </Field>
+                      <div className="flex gap-2 h-[36px]">
+                        {d.wardHistory.length > 1 && (
+                          <Button variant="ghost" size="icon" onClick={() => rmWard(i)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {d.wardHistory.length < 2 && (
+                    <Button variant="outline" size="sm" onClick={addWard}>
+                      <Plus className="h-4 w-4 mr-1" /> Add Ward
+                    </Button>
+                  )}
+                </div>
+              </Section>
+            )}
+
+            {d.type === "IPD" && (
+              <Section title="Relative details">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <Field label="Relative Name">
+                    <Input
+                      value={d.relativeName}
+                      onChange={(e) => set("relativeName", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Relation">
+                    <Input value={d.relation} onChange={(e) => set("relation", e.target.value)} />
+                  </Field>
+                  <Field label="Mobile No. of Relative">
+                    <Input
+                      value={d.relativePhone}
+                      maxLength={10}
+                      onChange={(e) => set("relativePhone", e.target.value.replace(/\D/g, ""))}
+                    />
+                  </Field>
+                  <Field label="Relative Address" className="lg:col-span-3">
+                    <Input
+                      value={d.relativeAddress}
+                      onChange={(e) => set("relativeAddress", e.target.value)}
+                    />
+                  </Field>
+                </div>
+              </Section>
+            )}
+
+            <Section title="Medical history">
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <Checkbox id="hasAllergy" checked={d.hasAllergy} onCheckedChange={(v) => { set("hasAllergy", !!v); if (!v) set("allergy", ""); }} />
+                    <Checkbox
+                      id="hasAllergy"
+                      checked={d.hasAllergy}
+                      onCheckedChange={(v) => {
+                        set("hasAllergy", !!v);
+                        if (!v) set("allergy", "");
+                      }}
+                    />
                     <Label htmlFor="hasAllergy">Any type of allergy</Label>
                   </div>
-                  {d.hasAllergy && <Field label="Please specify allergy"><Input value={d.allergy} onChange={(e) => set("allergy", e.target.value)} /></Field>}
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Checkbox id="hasDeformity" checked={d.hasDeformity} onCheckedChange={(v) => { set("hasDeformity", !!v); if (!v) set("deformity", ""); }} />
-                    <Label htmlFor="hasDeformity">Any type of deformity</Label>
-                  </div>
-                  {d.hasDeformity && <Field label="Please specify deformity"><Input value={d.deformity} onChange={(e) => set("deformity", e.target.value)} /></Field>}
+                  {d.hasAllergy && (
+                    <Field label="Please specify allergy">
+                      <Input value={d.allergy} onChange={(e) => set("allergy", e.target.value)} />
+                    </Field>
+                  )}
                 </div>
 
-                <Field label="Complaint" className="sm:col-span-2"><Textarea rows={3} value={d.complaint} onChange={(e) => set("complaint", e.target.value)} /></Field>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="hasDeformity"
+                      checked={d.hasDeformity}
+                      onCheckedChange={(v) => {
+                        set("hasDeformity", !!v);
+                        if (!v) set("deformity", "");
+                      }}
+                    />
+                    <Label htmlFor="hasDeformity">Any type of deformity</Label>
+                  </div>
+                  {d.hasDeformity && (
+                    <Field label="Please specify deformity">
+                      <Input
+                        value={d.deformity}
+                        onChange={(e) => set("deformity", e.target.value)}
+                      />
+                    </Field>
+                  )}
+                </div>
+
+                <Field label="Complaint" className="sm:col-span-2">
+                  <Textarea
+                    rows={3}
+                    value={d.complaint}
+                    onChange={(e) => set("complaint", e.target.value)}
+                  />
+                </Field>
               </div>
 
               <div className="mt-4 flex items-center gap-2">
-                <Checkbox id="mediclaim" checked={d.mediclaim} onCheckedChange={(v) => set("mediclaim", !!v)} />
+                <Checkbox
+                  id="mediclaim"
+                  checked={d.mediclaim}
+                  onCheckedChange={(v) => set("mediclaim", !!v)}
+                />
                 <Label htmlFor="mediclaim">Mediclaim / Insurance</Label>
               </div>
               {d.mediclaim && (
                 <div className="grid sm:grid-cols-2 gap-4 mt-3">
-                  <Field label="Insurance company"><Input value={d.insuranceCompany} onChange={(e) => set("insuranceCompany", e.target.value)} /></Field>
-                  <Field label="Policy number"><Input value={d.policyNumber} onChange={(e) => set("policyNumber", e.target.value)} /></Field>
+                  <Field label="Insurance company">
+                    <Input
+                      value={d.insuranceCompany}
+                      onChange={(e) => set("insuranceCompany", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Policy number">
+                    <Input
+                      value={d.policyNumber}
+                      onChange={(e) => set("policyNumber", e.target.value)}
+                    />
+                  </Field>
                 </div>
               )}
 
               <div className="mt-4 flex items-center gap-2">
-                <Checkbox id="pastops" checked={d.hasPastOps} onCheckedChange={(v) => { set("hasPastOps", !!v); if (v && d.pastOperations.length === 0) addOp(); }} />
+                <Checkbox
+                  id="pastops"
+                  checked={d.hasPastOps}
+                  onCheckedChange={(v) => {
+                    set("hasPastOps", !!v);
+                    if (v && d.pastOperations.length === 0) addOp();
+                  }}
+                />
                 <Label htmlFor="pastops">Any type of operation in past</Label>
               </div>
               {d.hasPastOps && (
                 <div className="mt-3 space-y-3">
                   {d.pastOperations.map((op, i) => (
-                    <div key={i} className="grid sm:grid-cols-4 gap-3 items-end rounded-lg border p-3 bg-muted/30">
-                      <Field label="Operation type"><Input value={op.type} onChange={(e) => updOp(i, "type", e.target.value)} /></Field>
-                      <Field label="Body part"><Input value={op.bodyPart} onChange={(e) => updOp(i, "bodyPart", e.target.value)} /></Field>
-                      <Field label="Place / hospital"><Input value={op.place} onChange={(e) => updOp(i, "place", e.target.value)} /></Field>
+                    <div
+                      key={i}
+                      className="grid sm:grid-cols-4 gap-3 items-end rounded-lg border p-3 bg-muted/30"
+                    >
+                      <Field label="Operation type">
+                        <Input value={op.type} onChange={(e) => updOp(i, "type", e.target.value)} />
+                      </Field>
+                      <Field label="Body part">
+                        <Input
+                          value={op.bodyPart}
+                          onChange={(e) => updOp(i, "bodyPart", e.target.value)}
+                        />
+                      </Field>
+                      <Field label="Place / hospital">
+                        <Input
+                          value={op.place}
+                          onChange={(e) => updOp(i, "place", e.target.value)}
+                        />
+                      </Field>
                       <div className="flex gap-2">
-                        <Field label="Deformity" className="flex-1"><Input value={op.deformity} onChange={(e) => updOp(i, "deformity", e.target.value)} /></Field>
-                        <Button variant="ghost" size="icon" onClick={() => rmOp(i)}><Trash2 className="h-4 w-4" /></Button>
+                        <Field label="Deformity" className="flex-1">
+                          <Input
+                            value={op.deformity}
+                            onChange={(e) => updOp(i, "deformity", e.target.value)}
+                          />
+                        </Field>
+                        <Button variant="ghost" size="icon" onClick={() => rmOp(i)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   ))}
-                  <Button variant="outline" size="sm" onClick={addOp}><Plus className="h-4 w-4 mr-1" /> Add operation</Button>
+                  <Button variant="outline" size="sm" onClick={addOp}>
+                    <Plus className="h-4 w-4 mr-1" /> Add operation
+                  </Button>
                 </div>
               )}
             </Section>
@@ -578,35 +907,94 @@ function ReceptionPage() {
               </div>
               {d.isMlc && (
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 border p-4 rounded-lg bg-muted/20">
-                  <Field label="Date of Matter"><Input type="date" value={d.mlcDateOfMatter} onChange={(e) => set("mlcDateOfMatter", e.target.value)} /></Field>
-                  <Field label="Time of Matter"><Input type="time" value={d.mlcTimeOfMatter} onChange={(e) => set("mlcTimeOfMatter", e.target.value)} /></Field>
-                  <Field label="Cause of Matter"><Input value={d.mlcCauseOfMatter} onChange={(e) => set("mlcCauseOfMatter", e.target.value)} /></Field>
-                  <Field label="Place of Matter"><Input value={d.mlcPlaceOfMatter} onChange={(e) => set("mlcPlaceOfMatter", e.target.value)} /></Field>
-                  <Field label="Any Hospitalized Past H/O" className="lg:col-span-3"><Input value={d.mlcAnyOfHospitalisedPastHO} onChange={(e) => set("mlcAnyOfHospitalisedPastHO", e.target.value)} /></Field>
-                  <Field label="Detail of Matter" className="lg:col-span-3"><Textarea rows={2} value={d.mlcDetailOfMatter} onChange={(e) => set("mlcDetailOfMatter", e.target.value)} /></Field>
-                  <Field label="Current Condition" className="lg:col-span-3"><Textarea rows={2} value={d.mlcCurrentCondition} onChange={(e) => set("mlcCurrentCondition", e.target.value)} /></Field>
-                  <Field label="Name of Filler"><Input value={d.mlcNameOfFiller} onChange={(e) => set("mlcNameOfFiller", e.target.value)} /></Field>
-                  <Field label="Filler Mo No."><Input value={d.mlcFillerMoNo} maxLength={10} onChange={(e) => set("mlcFillerMoNo", e.target.value.replace(/\D/g, ''))} /></Field>
+                  <Field label="Date of Matter">
+                    <Input
+                      type="date"
+                      value={d.mlcDateOfMatter}
+                      onChange={(e) => set("mlcDateOfMatter", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Time of Matter">
+                    <Input
+                      type="time"
+                      value={d.mlcTimeOfMatter}
+                      onChange={(e) => set("mlcTimeOfMatter", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Cause of Matter">
+                    <Input
+                      value={d.mlcCauseOfMatter}
+                      onChange={(e) => set("mlcCauseOfMatter", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Place of Matter">
+                    <Input
+                      value={d.mlcPlaceOfMatter}
+                      onChange={(e) => set("mlcPlaceOfMatter", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Any Hospitalized Past H/O" className="lg:col-span-3">
+                    <Input
+                      value={d.mlcAnyOfHospitalisedPastHO}
+                      onChange={(e) => set("mlcAnyOfHospitalisedPastHO", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Detail of Matter" className="lg:col-span-3">
+                    <Textarea
+                      rows={2}
+                      value={d.mlcDetailOfMatter}
+                      onChange={(e) => set("mlcDetailOfMatter", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Current Condition" className="lg:col-span-3">
+                    <Textarea
+                      rows={2}
+                      value={d.mlcCurrentCondition}
+                      onChange={(e) => set("mlcCurrentCondition", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Name of Filler">
+                    <Input
+                      value={d.mlcNameOfFiller}
+                      onChange={(e) => set("mlcNameOfFiller", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Filler Mo No.">
+                    <Input
+                      value={d.mlcFillerMoNo}
+                      maxLength={10}
+                      onChange={(e) => set("mlcFillerMoNo", e.target.value.replace(/\D/g, ""))}
+                    />
+                  </Field>
                 </div>
               )}
             </Section>
 
-          <div className="flex justify-end gap-2 pt-2 border-t">
-            <Button variant="outline" onClick={() => setD(initial)}>Reset</Button>
-            <Button onClick={submit}>Register patient</Button>
-          </div>
-        </CardContent>
-      </Card>
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button variant="outline" onClick={() => setD(initial)}>
+                Reset
+              </Button>
+              <Button onClick={submit}>Register patient</Button>
+            </div>
+          </CardContent>
+        </Card>
       </Tabs>
 
       <Dialog open={!!receipt} onOpenChange={(v) => !v && setReceipt(null)}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Registration Receipt</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Registration Receipt</DialogTitle>
+          </DialogHeader>
           {receipt && <Receipt patient={receipt} settings={db.hospitalSettings} />}
           <div className="flex justify-end gap-2 no-print flex-wrap">
-            <Button variant="outline" onClick={() => setReceipt(null)}>Close</Button>
+            <Button variant="outline" onClick={() => setReceipt(null)}>
+              Close
+            </Button>
             {receipt?.isMlc && (
-              <Button variant="secondary" onClick={() => receipt && handlePrintMlc(receipt, db.hospitalSettings)}>
+              <Button
+                variant="secondary"
+                onClick={() => receipt && handlePrintMlc(receipt, db.hospitalSettings)}
+              >
                 <Printer className="h-4 w-4 mr-2" /> Print MLC
               </Button>
             )}
@@ -633,134 +1021,222 @@ function ReceptionPage() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">{title}</h3>
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+        {title}
+      </h3>
       {children}
     </div>
   );
 }
-function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
-  return <div className={`space-y-1.5 ${className}`}><Label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>{children}</div>;
+function Field({
+  label,
+  children,
+  className = "",
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`space-y-1.5 ${className}`}>
+      <Label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
+      {children}
+    </div>
+  );
 }
 
 function Receipt({ patient, settings }: { patient: Patient; settings?: any }) {
-  const logoSrc = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg'
-    ? settings.logoUrl
-    : '/lifecare-logo.jpg';
+  const logoSrc =
+    settings?.logoUrl && settings.logoUrl !== "/logo.png" && settings.logoUrl !== "/logo.jpg"
+      ? settings.logoUrl
+      : "/lifecare-logo.jpg";
   let words = "";
   try {
-    words = numberToWords.toWords(Math.round(patient.opdCharge || 0)).replace(/\b\w/g, (c) => c.toUpperCase());
+    words = numberToWords
+      .toWords(Math.round(patient.opdCharge || 0))
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   } catch {
     words = `${patient.opdCharge}`;
   }
   const dt = new Date(patient.registeredAt);
 
-  return (
-    <div className="w-full max-w-[760px] mx-auto bg-white text-black font-sans p-4 border rounded-lg shadow-sm">
-      {/* Top Section Header */}
-      <div className="bg-[#4b4b4b] rounded-[30px] flex items-center justify-between h-[90px] relative mb-3 overflow-visible">
-        <div className="bg-white h-full w-[calc(100%-150px)] rounded-l-[30px] flex items-center justify-start p-1 box-border overflow-hidden">
-          <img src={logoSrc} alt="LifeCare Hospital" className="h-full w-auto max-w-full object-contain" />
+ return (
+    <div className="mx-auto w-full max-w-[760px] bg-white p-5 font-sans text-[11px] font-bold leading-relaxed text-[#111] print:max-w-none print:p-0">
+      {/* Header */}
+      <div className="relative mb-6 mt-2 flex h-[110px] items-center overflow-visible rounded-[36px] bg-[#4b4b4b] print:mb-5">
+        {/* <div className="box-border flex h-full w-[calc(100%-145px)] items-center overflow-hidden rounded-l-[36px] bg-white p-2">
+        <img
+          src={logoSrc}
+          alt="LifeCare Hospital"
+          className="h-full w-full object-contain object-left"
+        />
+      </div> */}
+
+        <div className="box-border flex h-full w-[calc(100%-130px)] min-w-0 items-center justify-center overflow-hidden rounded-l-[36px] bg-white p-1">
+          <img
+            src={logoSrc}
+            alt="LifeCare Hospital"
+            className="block h-full w-full object-inherit object-center"
+          />
         </div>
-        <div className="bg-white w-[115px] h-[115px] rounded-full absolute right-3 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center text-center shadow-md border border-gray-100 z-10">
-          <span className="text-[11px] text-[#e53e3e] font-medium leading-tight">Help Line :</span>
-          <span className="text-xs font-bold text-[#e53e3e] leading-tight mt-0.5">{settings?.helpline || '7016124362'}</span>
+
+        <div className="absolute right-3 top-1/2 z-10 flex h-[125px] w-[125px] -translate-y-1/2 flex-col items-center justify-center rounded-full border-[5px] border-white bg-white text-center shadow-md">
+          <span className="text-[11px] font-semibold leading-5 text-[#e53e3e]">Help Line :</span>
+          <span className="text-[12px] font-bold leading-5 text-[#e53e3e]">
+            {settings?.helpline || "7016124362"}
+          </span>
         </div>
       </div>
 
-      {/* Address */}
-      <div className="text-center font-bold text-[11px] tracking-wide text-gray-800 uppercase mb-3">
-        {settings?.address || 'BHAVNATH PARK-2 , HARIDHAVA MAIN ROAD , RAJKOT'}
+      {/* Hospital Address */}
+      <div className="mb-5 px-2 text-center text-[11px] font-bold uppercase leading-relaxed tracking-wide text-[#333]">
+        {settings?.address || "BHAVNATH PARK-2 , HARIDHAVA MAIN ROAD , RAJKOT"}
       </div>
 
-      {/* Title */}
-      <div className="text-center font-bold text-[#d32f2f] text-sm tracking-wider uppercase underline underline-offset-4 mb-3">
-        Registration & Consultation Receipt
-      </div>
-
-      {/* Patient & Consultation Details Grid */}
-      <div className="border border-gray-400 rounded p-2.5 mb-3 text-[11px] grid grid-cols-2 gap-x-6 gap-y-1.5 bg-gray-50/50">
-        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
-          <span className="text-gray-600 font-medium">PATIENT:</span>
-          <span className="font-bold text-gray-900">{patient.name}</span>
+      {/* Receipt Title */}
+      <div className="mb-5 flex items-end justify-between gap-3 border-b-2 border-[#555] pb-2">
+        <div className="text-[15px] font-bold uppercase tracking-wide text-[#ff6b6b] underline decoration-1 underline-offset-4">
+          Registration &amp; Consultation Receipt
         </div>
-        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
-          <span className="text-gray-600 font-medium">PATIENT CODE:</span>
-          <span className="font-bold text-gray-900">{patient.code}</span>
-        </div>
-
-        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
-          <span className="text-gray-600 font-medium">AGE / SEX:</span>
-          <span className="font-semibold">{patient.age} Y / {patient.gender}</span>
-        </div>
-        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
-          <span className="text-gray-600 font-medium">DATE:</span>
-          <span className="font-semibold">{dt.toLocaleDateString()}</span>
-        </div>
-
-        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
-          <span className="text-gray-600 font-medium">DOCTOR:</span>
-          <span className="font-bold text-gray-900">{patient.doctor || "-"}</span>
-        </div>
-        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
-          <span className="text-gray-600 font-medium">TIME:</span>
-          <span className="font-semibold">{dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-        </div>
-
-        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
-          <span className="text-gray-600 font-medium">DEPT:</span>
-          <span className="font-semibold">{patient.department}</span>
-        </div>
-        <div className="flex justify-between border-b border-dotted border-gray-300 pb-0.5">
-          <span className="text-gray-600 font-medium">VISIT TYPE:</span>
-          <span className="font-semibold">{patient.type}</span>
-        </div>
-
-        <div className="flex justify-between">
-          <span className="text-gray-600 font-medium">CITY / PHONE:</span>
-          <span className="font-semibold">{patient.city || "-"} {patient.phone ? `(${patient.phone})` : ""}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-gray-600 font-medium">STATUS:</span>
-          <span className="font-bold text-green-600">PAID</span>
+        <div className="shrink-0 text-right text-[11px] font-bold text-[#719bb3] underline decoration-1 underline-offset-4">
+          {dt.toLocaleDateString()}
         </div>
       </div>
 
-      {/* Charges Table */}
-      <div className="border border-gray-400 rounded overflow-hidden mb-2">
-        <table className="w-full text-[11px] text-left border-collapse">
+      {/* Patient Details */}
+      <div className="mb-5 space-y-4">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+          <span className="shrink-0 uppercase">Patient:</span>
+          <span className="min-w-[180px] flex-1 border-b border-dotted border-[#333] px-2 pb-1 text-[#444]">
+            {patient.name}
+          </span>
+
+          <span className="shrink-0 uppercase">Patient Code:</span>
+          <span className="min-w-[90px] flex-1 border-b border-dotted border-[#333] px-2 pb-1 text-[#444]">
+            {patient.code}
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+          <span className="shrink-0 uppercase">Age:</span>
+          <span className="min-w-[45px] flex-1 border-b border-dotted border-[#333] px-2 pb-1 text-[#444]">
+            {patient.age}
+          </span>
+
+          <span className="shrink-0 uppercase">Gender:</span>
+          <span className="min-w-[75px] flex-1 border-b border-dotted border-[#333] px-2 pb-1 text-[#444]">
+            {patient.gender}
+          </span>
+
+          <span className="shrink-0 uppercase">Visit Type:</span>
+          <span className="min-w-[90px] flex-1 border-b border-dotted border-[#333] px-2 pb-1 text-[#444]">
+            {patient.type}
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+          <span className="shrink-0 uppercase">Doctor:</span>
+          <span className="min-w-[180px] flex-1 border-b border-dotted border-[#333] px-2 pb-1 text-[#444]">
+            {patient.doctor || "-"}
+          </span>
+
+          <span className="shrink-0 uppercase">Department:</span>
+          <span className="min-w-[120px] flex-1 border-b border-dotted border-[#333] px-2 pb-1 text-[#444]">
+            {patient.department}
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+          <span className="shrink-0 uppercase">City:</span>
+          <span className="min-w-[100px] flex-1 border-b border-dotted border-[#333] px-2 pb-1 text-[#444]">
+            {patient.city || "-"}
+          </span>
+
+          <span className="shrink-0 uppercase">Phone:</span>
+          <span className="min-w-[140px] flex-1 border-b border-dotted border-[#333] px-2 pb-1 text-[#444]">
+            {patient.phone || "-"}
+          </span>
+        </div>
+
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+          <span className="shrink-0 uppercase">Date:</span>
+          <span className="min-w-[100px] flex-1 border-b border-dotted border-[#333] px-2 pb-1 text-[#444]">
+            {dt.toLocaleDateString()}
+          </span>
+
+          <span className="shrink-0 uppercase">Time:</span>
+          <span className="min-w-[100px] flex-1 border-b border-dotted border-[#333] px-2 pb-1 text-[#444]">
+            {dt.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </span>
+        </div>
+
+        <div className="flex items-baseline gap-3">
+          <span className="shrink-0 uppercase">Address:</span>
+          <span className="h-6 flex-1 border-b border-dotted border-[#333] px-2 text-[#444]">
+            {patient.city || "-"}
+          </span>
+        </div>
+      </div>
+
+      {/* Charges Table — same data */}
+      <div className="mb-3 overflow-hidden border border-[#555]">
+        <table className="w-full border-collapse text-left text-[11px]">
           <thead>
-            <tr className="bg-gray-100 border-b border-gray-400 text-gray-700">
-              <th className="py-1 px-2 border-r border-gray-400 w-10 text-center font-semibold">No.</th>
-              <th className="py-1 px-3 border-r border-gray-400 font-semibold">Description / Particulars</th>
-              <th className="py-1 px-3 border-r border-gray-400 w-32 font-semibold">Department</th>
-              <th className="py-1 px-3 text-right w-28 font-semibold">Amount (₹)</th>
+            <tr className="bg-[#4b4b4b] text-white">
+              <th className="w-10 border-r border-white/40 px-2 py-2 text-center font-bold">No.</th>
+              <th className="border-r border-white/40 px-3 py-2 font-bold">
+                Description / Particulars
+              </th>
+              <th className="w-32 border-r border-white/40 px-3 py-2 font-bold">Department</th>
+              <th className="w-28 px-3 py-2 text-right font-bold">Amount (₹)</th>
             </tr>
           </thead>
+
           <tbody>
-            <tr className="border-b border-gray-300">
-              <td className="py-2 px-2 border-r border-gray-400 text-center align-top">1</td>
-              <td className="py-2 px-3 border-r border-gray-400">
-                <div className="font-bold text-gray-900">Registration & OPD Consultation Charge</div>
-                <div className="text-[10px] text-gray-500">Initial OPD patient visit & consultation fee</div>
+            <tr className="border-b border-[#aaa]">
+              <td className="border-r border-[#aaa] px-2 py-3 text-center align-top">1</td>
+              <td className="border-r border-[#aaa] px-3 py-3 align-top">
+                <div className="font-bold text-[#222]">
+                  Registration &amp; OPD Consultation Charge
+                </div>
+                <div className="mt-1 text-[10px] font-normal text-[#666]">
+                  Initial OPD patient visit &amp; consultation fee
+                </div>
               </td>
-              <td className="py-2 px-3 border-r border-gray-400 align-top font-medium">{patient.department}</td>
-              <td className="py-2 px-3 text-right align-top font-bold text-gray-900">₹ {patient.opdCharge.toFixed(2)}</td>
+              <td className="border-r border-[#aaa] px-3 py-3 align-top font-semibold">
+                {patient.department}
+              </td>
+              <td className="px-3 py-3 text-right align-top font-bold">
+                ₹ {patient.opdCharge.toFixed(2)}
+              </td>
             </tr>
-            <tr className="bg-gray-50">
-              <td colSpan={2} className="py-1.5 px-3 border-r border-gray-400 text-[10px] italic text-gray-600">
-                Amount in Words: <span className="font-bold text-gray-800 not-italic">Rupees {words} Only</span>
+
+            <tr className="bg-[#f7f5f2]">
+              <td colSpan={2} className="border-r border-[#aaa] px-3 py-3">
+                <span className="font-normal italic text-[#555]">Amount in Words:</span>{" "}
+                <span className="font-bold text-[#222]">Rupees {words} Only</span>
               </td>
-              <td className="py-1.5 px-3 border-r border-gray-400 font-bold text-right">
+              <td className="border-r border-[#aaa] px-3 py-2 text-right">
                 <div>Total:</div>
-                <div className="text-red-600">Paid:</div>
+                <div className="mt-1 text-[#d32f2f]">Paid:</div>
               </td>
-              <td className="py-1.5 px-3 text-right font-bold">
+              <td className="px-3 py-2 text-right font-bold">
                 <div>₹ {patient.opdCharge.toFixed(2)}</div>
-                <div className="text-red-600">₹ {patient.opdCharge.toFixed(2)}</div>
+                <div className="mt-1 text-[#d32f2f]">₹ {patient.opdCharge.toFixed(2)}</div>
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      {/* Payment Status — existing information */}
+      <div className="mt-4 flex justify-end">
+        <div className="border-2 border-[#477b58] px-5 py-1.5 text-[12px] font-bold uppercase tracking-widest text-[#477b58]">
+          Paid
+        </div>
       </div>
     </div>
   );
@@ -782,13 +1258,16 @@ const handlePrintReceipt = (patient: Patient, settings: any) => {
   const printWindow = printIframe.contentWindow;
   if (!printWindow) return;
 
-  const logoSrc = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg'
-    ? settings.logoUrl
-    : '/lifecare-logo.jpg';
+  const logoSrc =
+    settings?.logoUrl && settings.logoUrl !== "/logo.png" && settings.logoUrl !== "/logo.jpg"
+      ? settings.logoUrl
+      : "/lifecare-logo.jpg";
 
   let words = "";
   try {
-    words = numberToWords.toWords(Math.round(patient.opdCharge || 0)).replace(/\b\w/g, (c) => c.toUpperCase());
+    words = numberToWords
+      .toWords(Math.round(patient.opdCharge || 0))
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   } catch {
     words = `${patient.opdCharge}`;
   }
@@ -1022,10 +1501,10 @@ const handlePrintReceipt = (patient: Patient, settings: any) => {
             <img src="${logoSrc}" alt="Logo" class="pos-logo" />
             <div class="helpline-badge">
               <span class="hl-label">HELPLINE</span>
-              <span class="hl-num">${settings?.helpline || '7016124362'}</span>
+              <span class="hl-num">${settings?.helpline || "7016124362"}</span>
             </div>
           </div>
-          <div class="pos-address">${settings?.address || 'BHAVNATH PARK-2, HARIDHAVA MAIN ROAD, RAJKOT'}</div>
+          <div class="pos-address">${settings?.address || "BHAVNATH PARK-2, HARIDHAVA MAIN ROAD, RAJKOT"}</div>
         </div>
 
         <hr class="double-line" />
@@ -1041,7 +1520,7 @@ const handlePrintReceipt = (patient: Patient, settings: any) => {
           <span>${dt.toLocaleDateString()}</span>
         </div>
         <div class="receipt-meta">
-          <span>Time: ${dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+          <span>Time: ${dt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
           <span>Type: <strong>${patient.type}</strong></span>
         </div>
 
@@ -1231,18 +1710,18 @@ export const handlePrintMlc = (patient: Patient, settings: any) => {
       <body>
         <div class="top-section">
           <div class="logo-container">
-            ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ''}
+            ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ""}
           </div>
           <div class="helpline-circle">
             <span class="helpline-title">Help Line :</span>
-            <span class="helpline-number">${settings?.helpline || 'N/A'}</span>
+            <span class="helpline-number">${settings?.helpline || "N/A"}</span>
           </div>
         </div>
 
         <div class="page-padding">
           <div class="title-area">
             <div class="form-title">Registration and M.L.C. Form</div>
-            <div class="date-time">DATE / TIME:- ${patient.mlcDateOfMatter || ''} ${patient.mlcTimeOfMatter || ''}</div>
+            <div class="date-time">DATE / TIME:- ${patient.mlcDateOfMatter || ""} ${patient.mlcTimeOfMatter || ""}</div>
           </div>
 
         <div class="form-row">
@@ -1254,69 +1733,69 @@ export const handlePrintMlc = (patient: Patient, settings: any) => {
           <span class="field-label">Age / Gender -</span>
           <span class="field-value" style="flex: 2;">${patient.age} / ${patient.gender}</span>
           <span class="field-label">Marital Status -</span>
-          <span class="field-value" style="flex: 2;">${patient.maritalStatus || '-'}</span>
+          <span class="field-value" style="flex: 2;">${patient.maritalStatus || "-"}</span>
           <span class="field-label">Child -</span>
-          <span class="field-value" style="flex: 1;">${patient.child || '-'}</span>
+          <span class="field-value" style="flex: 1;">${patient.child || "-"}</span>
         </div>
 
         <div class="form-row" style="display: flex;">
           <span class="field-label">Occupation -</span>
-          <span class="field-value" style="flex: 2;">${patient.occupation || '-'}</span>
+          <span class="field-value" style="flex: 2;">${patient.occupation || "-"}</span>
           <span class="field-label">Religion -</span>
-          <span class="field-value" style="flex: 2;">${patient.religion || '-'}</span>
+          <span class="field-value" style="flex: 2;">${patient.religion || "-"}</span>
           <span class="field-label">Cast -</span>
-          <span class="field-value" style="flex: 1;">${patient.caste || '-'}</span>
+          <span class="field-value" style="flex: 1;">${patient.caste || "-"}</span>
         </div>
 
         <div class="form-row" style="display: flex;">
           <span class="field-label">City -</span>
-          <span class="field-value" style="flex: 2;">${patient.city || '-'}</span>
+          <span class="field-value" style="flex: 2;">${patient.city || "-"}</span>
           <span class="field-label">State -</span>
-          <span class="field-value" style="flex: 2;">${patient.state || '-'}</span>
+          <span class="field-value" style="flex: 2;">${patient.state || "-"}</span>
           <span class="field-label">Pin No., -</span>
-          <span class="field-value" style="flex: 1;">${patient.pincode || '-'}</span>
+          <span class="field-value" style="flex: 1;">${patient.pincode || "-"}</span>
         </div>
 
         <div class="form-row">
           <span class="field-label">Relative Currently With Name -</span>
-          <span class="field-value">${patient.relativeName || '-'}</span>
+          <span class="field-value">${patient.relativeName || "-"}</span>
         </div>
 
         <div class="form-row" style="display: flex;">
           <span class="field-label">Relation -</span>
-          <span class="field-value" style="flex: 1;">${patient.relation || '-'}</span>
+          <span class="field-value" style="flex: 1;">${patient.relation || "-"}</span>
           <span class="field-label">Relative Mo No, -</span>
-          <span class="field-value" style="flex: 1;">${patient.relativePhone || '-'}</span>
+          <span class="field-value" style="flex: 1;">${patient.relativePhone || "-"}</span>
         </div>
 
         <div class="form-row">
           <span class="field-label">Current Address -</span>
-          <span class="field-value">${patient.addressLine || '-'}</span>
+          <span class="field-value">${patient.addressLine || "-"}</span>
         </div>
         <div class="full-line"></div>
 
         <div class="form-row">
           <span class="field-label">Permanent Address -</span>
-          <span class="field-value">${patient.addressLine || '-'}</span>
+          <span class="field-value">${patient.addressLine || "-"}</span>
         </div>
 
         <div class="form-row" style="display: flex;">
           <span class="field-label">Mo.,No., -</span>
-          <span class="field-value" style="flex: 2;">${patient.phone || '-'}</span>
+          <span class="field-value" style="flex: 2;">${patient.phone || "-"}</span>
           <span class="field-label">Mediclaim –</span>
-          <span class="field-value" style="flex: 1; border: none;">${patient.mediclaim ? 'YES' : 'NO'}</span>
+          <span class="field-value" style="flex: 1; border: none;">${patient.mediclaim ? "YES" : "NO"}</span>
         </div>
 
         <div class="form-row" style="display: flex;">
           <span class="field-label">Dr. Incharge -</span>
-          <span class="field-value" style="flex: 1;">${patient.doctor || '-'}</span>
+          <span class="field-value" style="flex: 1;">${patient.doctor || "-"}</span>
           <span class="field-label">Medical Officer -</span>
-          <span class="field-value" style="flex: 1;">${patient.doctor || '-'}</span>
+          <span class="field-value" style="flex: 1;">${patient.doctor || "-"}</span>
         </div>
 
         <div class="form-row">
           <span class="field-label">Detail of Matter -</span>
-          <span class="field-value">${patient.mlcDetailOfMatter || '-'}</span>
+          <span class="field-value">${patient.mlcDetailOfMatter || "-"}</span>
         </div>
         <div class="full-line"></div>
         <div class="full-line"></div>
@@ -1324,36 +1803,36 @@ export const handlePrintMlc = (patient: Patient, settings: any) => {
 
         <div class="form-row" style="display: flex;">
           <span class="field-label">Date of Matter -</span>
-          <span class="field-value" style="flex: 1;">${patient.mlcDateOfMatter || '-'}</span>
+          <span class="field-value" style="flex: 1;">${patient.mlcDateOfMatter || "-"}</span>
           <span class="field-label">Time of Matter -</span>
-          <span class="field-value" style="flex: 1;">${patient.mlcTimeOfMatter || '-'}</span>
+          <span class="field-value" style="flex: 1;">${patient.mlcTimeOfMatter || "-"}</span>
         </div>
 
         <div class="form-row" style="display: flex;">
           <span class="field-label">Cause of Matter -</span>
-          <span class="field-value" style="flex: 1;">${patient.mlcCauseOfMatter || '-'}</span>
+          <span class="field-value" style="flex: 1;">${patient.mlcCauseOfMatter || "-"}</span>
           <span class="field-label">Place of Matter -</span>
-          <span class="field-value" style="flex: 1;">${patient.mlcPlaceOfMatter || '-'}</span>
+          <span class="field-value" style="flex: 1;">${patient.mlcPlaceOfMatter || "-"}</span>
         </div>
 
         <div class="form-row">
           <span class="field-label">Any of Hospitalised Past H/O -</span>
-          <span class="field-value">${patient.mlcAnyOfHospitalisedPastHO || '-'}</span>
+          <span class="field-value">${patient.mlcAnyOfHospitalisedPastHO || "-"}</span>
         </div>
         <div class="full-line"></div>
 
         <div class="form-row">
           <span class="field-label">Current Condition -</span>
-          <span class="field-value">${patient.mlcCurrentCondition || '-'}</span>
+          <span class="field-value">${patient.mlcCurrentCondition || "-"}</span>
         </div>
         <div class="full-line"></div>
 
         <br/><br/>
         <div class="form-row" style="display: flex;">
           <span class="field-label">Name of Filler -</span>
-          <span class="field-value" style="flex: 2;">${patient.mlcNameOfFiller || '-'}</span>
+          <span class="field-value" style="flex: 2;">${patient.mlcNameOfFiller || "-"}</span>
           <span class="field-label">Mo No -</span>
-          <span class="field-value" style="flex: 1;">${patient.mlcFillerMoNo || '-'}</span>
+          <span class="field-value" style="flex: 1;">${patient.mlcFillerMoNo || "-"}</span>
         </div>
 
         <br/>
@@ -1381,7 +1860,17 @@ export const handlePrintMlc = (patient: Patient, settings: any) => {
   printWindow.document.close();
 };
 
-export function ConsentFormDialog({ patient, settings, onClose, isReprint = false }: { patient: Patient, settings: any, onClose: () => void, isReprint?: boolean }) {
+export function ConsentFormDialog({
+  patient,
+  settings,
+  onClose,
+  isReprint = false,
+}: {
+  patient: Patient;
+  settings: any;
+  onClose: () => void;
+  isReprint?: boolean;
+}) {
   const [signed, setSigned] = useState(false);
 
   const printConsent = () => {
@@ -1456,7 +1945,7 @@ export function ConsentFormDialog({ patient, settings, onClose, isReprint = fals
               left: 10%;
               width: 80%;
               height: 40%;
-              background-image: url('${settings?.logoUrl && settings.logoUrl !== '/logo.png' ? settings.logoUrl : '/lifecare-logo.jpg'}');
+              background-image: url('${settings?.logoUrl && settings.logoUrl !== "/logo.png" ? settings.logoUrl : "/lifecare-logo.jpg"}');
               background-size: contain;
               background-position: center;
               background-repeat: no-repeat;
@@ -1496,11 +1985,11 @@ export function ConsentFormDialog({ patient, settings, onClose, isReprint = fals
           <div class="watermark"></div>
           <div class="top-section">
             <div class="logo-container">
-              ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ''}
+              ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ""}
             </div>
             <div class="helpline-circle">
               <span class="helpline-title">Help Line :</span>
-              <span class="helpline-number">${settings?.helpline || 'N/A'}</span>
+              <span class="helpline-number">${settings?.helpline || "N/A"}</span>
             </div>
           </div>
           
@@ -1510,24 +1999,28 @@ export function ConsentFormDialog({ patient, settings, onClose, isReprint = fals
           <div class="date-row">DATE / TIME :- <span>${new Date().toLocaleString()}</span></div>
           
           <div class="info-row">PATIENT FULL NAME:- <span>${patient.name}</span></div>
-          <div class="info-row">AGE / GENDER - <span>${patient.age} / ${patient.gender}</span> MARITIAL STATUS - <span>${patient.maritalStatus || ''}</span> CHILD - <span>${patient.child || ''}</span></div>
-          <div class="info-row">OCCUPATION - <span>${patient.occupation || ''}</span> RELIGION- <span>${patient.religion || ''}</span> CAST- <span>${patient.caste || ''}</span></div>
-          <div class="info-row">CITY- <span>${patient.city || ''}</span> STATE- <span>${patient.state || ''}</span> PIN NO :- <span>${patient.pincode || ''}</span></div>
+          <div class="info-row">AGE / GENDER - <span>${patient.age} / ${patient.gender}</span> MARITIAL STATUS - <span>${patient.maritalStatus || ""}</span> CHILD - <span>${patient.child || ""}</span></div>
+          <div class="info-row">OCCUPATION - <span>${patient.occupation || ""}</span> RELIGION- <span>${patient.religion || ""}</span> CAST- <span>${patient.caste || ""}</span></div>
+          <div class="info-row">CITY- <span>${patient.city || ""}</span> STATE- <span>${patient.state || ""}</span> PIN NO :- <span>${patient.pincode || ""}</span></div>
           <div class="info-row">(1) MO NO ,:- <span>${patient.phone}</span> (2) MO NO.:- <span></span></div>
-          <div class="info-row">CURRENTLY WITH RELATIVE NAME :- <span>${patient.relativeName || ''}</span></div>
-          <div class="info-row">RELATION :- <span>${patient.relation || ''}</span> MO NO OF RELATIVE :- <span>${patient.relativePhone || ''}</span></div>
+          <div class="info-row">CURRENTLY WITH RELATIVE NAME :- <span>${patient.relativeName || ""}</span></div>
+          <div class="info-row">RELATION :- <span>${patient.relation || ""}</span> MO NO OF RELATIVE :- <span>${patient.relativePhone || ""}</span></div>
           ${(() => {
             const wards = patient.ward ? patient.ward.split(" & ") : [];
             const wardNums = patient.wardNumber ? patient.wardNumber.split(" & ") : [];
-            
-            if (wards.length === 0) return '<div class="info-row">WARD :- <span></span> WARD NO :- <span></span></div>';
-            
-            return wards.map((w, i) => 
-              `<div class="info-row">WARD (${i+1}) :- <span>${w}</span> WARD NO (${i+1}) :- <span>${wardNums[i] || ''}</span></div>`
-            ).join("");
+
+            if (wards.length === 0)
+              return '<div class="info-row">WARD :- <span></span> WARD NO :- <span></span></div>';
+
+            return wards
+              .map(
+                (w, i) =>
+                  `<div class="info-row">WARD (${i + 1}) :- <span>${w}</span> WARD NO (${i + 1}) :- <span>${wardNums[i] || ""}</span></div>`,
+              )
+              .join("");
           })()}
-          <div class="info-row">PATIENT ADDRESS :- <span>${patient.addressLine || ''}</span></div>
-          <div class="info-row">RELATIVE ADDRESS :- <span>${patient.relativeAddress || ''}</span></div>
+          <div class="info-row">PATIENT ADDRESS :- <span>${patient.addressLine || ""}</span></div>
+          <div class="info-row">RELATIVE ADDRESS :- <span>${patient.relativeAddress || ""}</span></div>
           
           <div class="info-row" style="margin-top: 20px;"><span class="blue-text" style="border: none; flex: 0;">Dr. INCHARGE -</span> <span>${patient.doctor}</span> <span class="blue-text" style="border: none; flex: 0;">MEDICAL OFFICER -</span> <span></span></div>
           
@@ -1552,11 +2045,11 @@ export function ConsentFormDialog({ patient, settings, onClose, isReprint = fals
           
           <div class="top-section">
             <div class="logo-container">
-              ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ''}
+              ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ""}
             </div>
             <div class="helpline-circle">
               <span class="helpline-title">Help Line :</span>
-              <span class="helpline-number">${settings?.helpline || 'N/A'}</span>
+              <span class="helpline-number">${settings?.helpline || "N/A"}</span>
             </div>
           </div>
           
@@ -1628,19 +2121,24 @@ export function ConsentFormDialog({ patient, settings, onClose, isReprint = fals
             {isReprint ? "Print Consent Form" : "Hospital Consent Form"}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
-            {isReprint ? "Click the print button below to print a copy of the consent form for this patient." : "Please review and confirm all clauses before admitting the patient."}
+            {isReprint
+              ? "Click the print button below to print a copy of the consent form for this patient."
+              : "Please review and confirm all clauses before admitting the patient."}
           </p>
         </DialogHeader>
 
         {!isReprint && (
           <div className="space-y-3 py-4 border-y my-2 text-sm text-muted-foreground">
             <div className="flex items-center gap-3 bg-muted/50 p-4 rounded-lg border border-border mt-4">
-              <Checkbox 
-                id="signed-consent" 
-                checked={signed} 
+              <Checkbox
+                id="signed-consent"
+                checked={signed}
                 onCheckedChange={(v) => setSigned(!!v)}
               />
-              <Label htmlFor="signed-consent" className="leading-snug cursor-pointer flex-1 font-semibold text-foreground">
+              <Label
+                htmlFor="signed-consent"
+                className="leading-snug cursor-pointer flex-1 font-semibold text-foreground"
+              >
                 The patient has signed the physical consent form.
               </Label>
             </div>
@@ -1668,7 +2166,9 @@ export function ConsentFormDialog({ patient, settings, onClose, isReprint = fals
             </div>
           )}
           <div className="flex gap-2 w-full sm:w-auto justify-end">
-            <Button variant="ghost" onClick={onClose}>{isReprint ? "Cancel" : "Cancel"}</Button>
+            <Button variant="ghost" onClick={onClose}>
+              {isReprint ? "Cancel" : "Cancel"}
+            </Button>
             {isReprint ? (
               <Button onClick={printConsent} className="gap-2">
                 <Printer className="h-4 w-4" />
