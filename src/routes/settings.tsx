@@ -25,6 +25,10 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
+  useEffect(() => {
+    settingsService.getHospitalSettings();
+  }, []);
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -200,7 +204,7 @@ function HospitalSettings() {
   const [address, setAddress] = useState(db.hospitalSettings?.address || "");
   const [followUpValidityMonths, setFollowUpValidityMonths] = useState(db.hospitalSettings?.followUpValidityMonths?.toString() || "3");
   const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState(db.hospitalSettings?.logoUrl || "");
+  const [logoPreview, setLogoPreview] = useState(db.hospitalSettings?.logoUrl || "/lifecare-logo.jpg");
   const [isUploading, setIsUploading] = useState(false);
   
   const [bankAccountName, setBankAccountName] = useState(db.hospitalSettings?.bankAccountName || "");
@@ -208,14 +212,42 @@ function HospitalSettings() {
   const [bankName, setBankName] = useState(db.hospitalSettings?.bankName || "");
   const [bankIfscCode, setBankIfscCode] = useState(db.hospitalSettings?.bankIfscCode || "");
 
+  useEffect(() => {
+    settingsService.getHospitalSettings().then((s) => {
+      if (s) {
+        if (s.helpline) setHelpline(s.helpline);
+        if (s.address) setAddress(s.address);
+        if (s.followUpValidityMonths) setFollowUpValidityMonths(s.followUpValidityMonths.toString());
+        if (s.bankAccountName) setBankAccountName(s.bankAccountName);
+        if (s.bankAccountNumber) setBankAccountNumber(s.bankAccountNumber);
+        if (s.bankName) setBankName(s.bankName);
+        if (s.bankIfscCode) setBankIfscCode(s.bankIfscCode);
+        if (s.logoUrl) setLogoPreview(s.logoUrl);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (db.hospitalSettings) {
+      if (db.hospitalSettings.helpline) setHelpline(db.hospitalSettings.helpline);
+      if (db.hospitalSettings.address) setAddress(db.hospitalSettings.address);
+      if (db.hospitalSettings.followUpValidityMonths) setFollowUpValidityMonths(db.hospitalSettings.followUpValidityMonths.toString());
+      if (db.hospitalSettings.bankAccountName) setBankAccountName(db.hospitalSettings.bankAccountName);
+      if (db.hospitalSettings.bankAccountNumber) setBankAccountNumber(db.hospitalSettings.bankAccountNumber);
+      if (db.hospitalSettings.bankName) setBankName(db.hospitalSettings.bankName);
+      if (db.hospitalSettings.bankIfscCode) setBankIfscCode(db.hospitalSettings.bankIfscCode);
+      if (db.hospitalSettings.logoUrl) setLogoPreview(db.hospitalSettings.logoUrl);
+    }
+  }, [db.hospitalSettings]);
+
   const handleSave = async () => {
     setIsUploading(true);
-    let finalLogoUrl = db.hospitalSettings?.logoUrl || "";
+    let finalLogoUrl = db.hospitalSettings?.logoUrl || "/lifecare-logo.jpg";
     try {
       if (logoFile) {
         finalLogoUrl = await settingsService.uploadLogo(logoFile);
       }
-      settingsService.updateHospitalSettings({ 
+      await settingsService.updateHospitalSettings({ 
         helpline, 
         address, 
         logoUrl: finalLogoUrl, 
@@ -321,8 +353,11 @@ function HospitalSettings() {
                   src={logoPreview} 
                   alt="Logo Preview" 
                   className="h-16 object-contain"
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  onLoad={(e) => { e.currentTarget.style.display = 'block'; }}
+                  onError={(e) => { 
+                    if (!e.currentTarget.src.includes('lifecare-logo.jpg')) {
+                      e.currentTarget.src = '/lifecare-logo.jpg';
+                    }
+                  }}
                 />
               </div>
             )}

@@ -318,34 +318,33 @@ function DispenseTab() {
 
           {isWalkIn ? (
             <F label="Customer name">
-              <Input 
-                value={walkInName} 
-                onChange={(e) => setWalkInName(e.target.value)} 
-                placeholder="Enter customer name" 
+              <Input
+                value={walkInName}
+                onChange={(e) => setWalkInName(e.target.value)}
+                placeholder="Enter customer name"
                 className="w-64"
               />
             </F>
           ) : (
             <div className="relative">
               <F label="Patient code / name">
-                <Input 
-                  value={code} 
-                  onChange={(e) => setCode(e.target.value)} 
+                <Input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
                   onFocus={() => setShowResults(true)}
                   onBlur={() => setTimeout(() => setShowResults(false), 200)}
                   onKeyDown={handleKeyDown}
-                  placeholder="e.g. P-2026-00001 or Yash" 
+                  placeholder="e.g. P-2026-00001 or Yash"
                   className="w-64"
                 />
               </F>
               {showResults && searchResults.length > 0 && (
                 <div className="absolute top-full left-0 mt-1 w-full bg-popover text-popover-foreground rounded-md border shadow-md z-10 overflow-hidden">
                   {searchResults.map((p, idx) => (
-                    <div 
-                      key={p.id} 
-                      className={`px-3 py-2 text-sm hover:bg-muted cursor-pointer transition-colors ${
-                        idx === activeIndex ? "bg-muted font-medium" : ""
-                      }`}
+                    <div
+                      key={p.id}
+                      className={`px-3 py-2 text-sm hover:bg-muted cursor-pointer transition-colors ${idx === activeIndex ? "bg-muted font-medium" : ""
+                        }`}
                       onMouseDown={(e) => {
                         e.preventDefault();
                         setCode(p.name);
@@ -359,7 +358,7 @@ function DispenseTab() {
               )}
             </div>
           )}
-          
+
           {!isWalkIn && <Button onClick={search}>Fetch prescription</Button>}
         </div>
 
@@ -434,7 +433,7 @@ function DispenseTab() {
                 </TableBody>
               </Table>
             </div>
-            
+
             <div className="flex justify-start">
               <Button variant="outline" size="sm" onClick={() => setLines([...lines, { medicineId: "", selected: true, units: "1" }])}>
                 + Add medicine manually
@@ -497,6 +496,8 @@ const handlePrintBill = (bill: Bill, patient: Patient, settings: any) => {
   const printWindow = printIframe.contentWindow;
   if (!printWindow) return;
 
+  const logoUrl = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg' ? settings.logoUrl : '/lifecare-logo.jpg';
+
   const itemsHtml = bill.items.map((i) => `
     <tr>
       <td style="padding: 10px; border: 1px solid #eee;">${i.name}</td>
@@ -515,7 +516,7 @@ const handlePrintBill = (bill: Bill, patient: Patient, settings: any) => {
           @page { margin: 0; }
           body { font-family: system-ui, -apple-system, sans-serif; padding: 0; margin: 0; color: #333; line-height: 1.5; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-          .page-padding { padding: 0 20px 20px 20px; }
+          .page-padding { padding: 0 20px 20px 20px; position: relative; z-index: 1; background: transparent; }
             .top-section { 
               background-color: #4b4b4b !important; 
               margin: 20px 20px 30px 20px;
@@ -525,6 +526,7 @@ const handlePrintBill = (bill: Bill, patient: Patient, settings: any) => {
               justify-content: space-between; 
               height: 120px;
               position: relative;
+              z-index: 1;
             }
             .logo-container { 
               background-color: white !important;
@@ -563,8 +565,8 @@ const handlePrintBill = (bill: Bill, patient: Patient, settings: any) => {
               left: 50%;
               transform: translate(-50%, -50%);
               -webkit-transform: translate(-50%, -50%);
-              opacity: 0.15;
-              z-index: -1;
+              opacity: 0.13;
+              z-index: 0;
               pointer-events: none;
               width: 100%;
               display: flex;
@@ -598,15 +600,15 @@ const handlePrintBill = (bill: Bill, patient: Patient, settings: any) => {
       </head>
       <body>
         <div class="watermark">
-          ${settings.logoUrl ? `<img src="${settings.logoUrl}" alt="Watermark" />` : ''}
+          <img src="${logoUrl}" alt="Watermark" onerror="this.src='/lifecare-logo.jpg'" />
         </div>
         <div class="top-section">
           <div class="logo-container">
-            ${settings.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ''}
+            <img src="${logoUrl}" alt="Hospital Logo" onerror="this.src='/lifecare-logo.jpg'" />
           </div>
           <div class="helpline-circle">
             <span class="helpline-title">Help Line :</span>
-            <span class="helpline-number">${settings.helpline || 'N/A'}</span>
+            <span class="helpline-number">${settings.helpline || '7016124362'}</span>
           </div>
         </div>
         
@@ -672,7 +674,7 @@ function BillPrint({ bill, patient, hospitalSettings }: { bill: Bill; patient: P
   return (
     <div className="print-area space-y-4">
       <div className="border-2 border-dashed rounded-lg p-3 text-center text-xs text-muted-foreground">
-        {hospitalSettings.logoUrl && <img src={hospitalSettings.logoUrl} alt="Logo" className="mx-auto max-h-12 mb-2" />}
+        <img src={hospitalSettings.logoUrl || '/lifecare-logo.jpg'} alt="Logo" className="mx-auto max-h-12 mb-2" onError={(e) => { e.currentTarget.src = '/lifecare-logo.jpg'; }} />
         {hospitalSettings.address || "Hospital Letterhead — to be added"}
       </div>
       <div className="grid grid-cols-2 gap-3 text-sm">
@@ -739,10 +741,10 @@ function BillsTab() {
     <Card className="shadow-[var(--shadow-card)]">
       <CardContent className="p-5 space-y-5">
         <div className="flex max-w-sm relative">
-          <Input 
-            value={q} 
-            onChange={(e) => setQ(e.target.value)} 
-            placeholder="Search by patient code or name..." 
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by patient code or name..."
             className="pr-10"
           />
           <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -793,12 +795,12 @@ function BillsTab() {
           <DialogContent className="max-w-lg">
             <DialogHeader><DialogTitle>Invoice</DialogTitle></DialogHeader>
             {activeBill && (
-              <BillPrint 
-                bill={activeBill} 
+              <BillPrint
+                bill={activeBill}
                 patient={
-                  db.patients.find(x => x.id === activeBill.patientId || x.code === activeBill.patientCode) || 
+                  db.patients.find(x => x.id === activeBill.patientId || x.code === activeBill.patientCode) ||
                   { id: activeBill.patientId, code: activeBill.patientCode, name: "Unknown Patient" } as any
-                } 
+                }
                 hospitalSettings={db.hospitalSettings}
               />
             )}
@@ -806,7 +808,7 @@ function BillsTab() {
               <Button variant="outline" onClick={() => setActiveBill(null)}>Close</Button>
               <Button onClick={() => {
                 if (activeBill) {
-                  const patient = db.patients.find(x => x.id === activeBill.patientId || x.code === activeBill.patientCode) || 
+                  const patient = db.patients.find(x => x.id === activeBill.patientId || x.code === activeBill.patientCode) ||
                     { id: activeBill.patientId, code: activeBill.patientCode, name: "Unknown Patient" } as any;
                   handlePrintBill(activeBill, patient, db.hospitalSettings);
                 }

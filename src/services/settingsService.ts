@@ -219,7 +219,29 @@ export const settingsService = {
   },
 
   // Hospital Settings
-  updateHospitalSettings: (data: Partial<{ 
+  getHospitalSettings: async () => {
+    try {
+      const data = await apiService.hospitalSettings.get();
+      const mapped = {
+        helpline: data.helpline || "",
+        address: data.address || "",
+        logoUrl: data.logoUrl || "/lifecare-logo.jpg",
+        followUpValidityMonths: data.followUpValidityMonths ?? 3,
+        bankAccountName: data.bankAccountName || "",
+        bankAccountNumber: data.bankAccountNumber || "",
+        bankName: data.bankName || "",
+        bankIfscCode: data.bankIfscCode || ""
+      };
+      store.set((db) => {
+        db.hospitalSettings = mapped;
+      });
+      return mapped;
+    } catch (err) {
+      console.error("Failed to fetch hospital settings from backend, falling back to local store:", err);
+      return store.get().hospitalSettings;
+    }
+  },
+  updateHospitalSettings: async (data: Partial<{ 
     helpline: string; 
     address: string; 
     logoUrl: string; 
@@ -229,20 +251,49 @@ export const settingsService = {
     bankName: string;
     bankIfscCode: string;
   }>) => {
-    store.set((db) => {
-      db.hospitalSettings = { ...db.hospitalSettings, ...data };
-    });
+    try {
+      const current = store.get().hospitalSettings || {
+        helpline: "",
+        address: "",
+        logoUrl: "/lifecare-logo.jpg",
+        followUpValidityMonths: 3,
+        bankAccountName: "",
+        bankAccountNumber: "",
+        bankName: "",
+        bankIfscCode: ""
+      };
+      const merged = { ...current, ...data };
+      await apiService.hospitalSettings.update({
+        helpline: merged.helpline,
+        address: merged.address,
+        logoUrl: merged.logoUrl || "/lifecare-logo.jpg",
+        followUpValidityMonths: Number(merged.followUpValidityMonths) || 3,
+        bankAccountName: merged.bankAccountName,
+        bankAccountNumber: merged.bankAccountNumber,
+        bankName: merged.bankName,
+        bankIfscCode: merged.bankIfscCode
+      });
+      store.set((db) => {
+        db.hospitalSettings = merged;
+      });
+    } catch (err) {
+      console.error("Failed to update hospital settings on backend, updating local store only:", err);
+      store.set((db) => {
+        db.hospitalSettings = { ...db.hospitalSettings, ...data };
+      });
+    }
   },
   uploadLogo: async (file: File) => {
     try {
       const res = await apiService.hospitalSettings.uploadLogo(file);
-      const fullUrl = `https://subsector-harvest-juicy.ngrok-free.dev${res.logoUrl}`;
+      // Keep URL or fallback to default dist logo
+      const url = res.logoUrl || "/lifecare-logo.jpg";
       store.set((db) => {
         if (db.hospitalSettings) {
-          db.hospitalSettings.logoUrl = fullUrl;
+          db.hospitalSettings.logoUrl = url;
         }
       });
-      return fullUrl;
+      return url;
     } catch (error) {
       console.error("Failed to upload logo", error);
       throw error;

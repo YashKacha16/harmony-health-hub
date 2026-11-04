@@ -207,6 +207,8 @@ function OPDPage() {
     const printWindow = printIframe.contentWindow;
     if (!printWindow) return;
     
+    const logoUrl = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg' ? settings.logoUrl : '/lifecare-logo.jpg';
+    
     const showSlot = (v: string) => {
       if (v === "true") return "✓";
       if (v === "false") return "";
@@ -298,8 +300,8 @@ function OPDPage() {
               left: calc(50% + 70px);
               transform: translate(-50%, -50%);
               -webkit-transform: translate(-50%, -50%);
-              opacity: 0.15;
-              z-index: -1;
+              opacity: 0.13;
+              z-index: 0;
               pointer-events: none;
               width: 100%;
               display: flex;
@@ -355,7 +357,7 @@ function OPDPage() {
               padding-bottom: 20px;
               position: relative;
             }
-            .content-wrapper { flex: 1; }
+            .content-wrapper { flex: 1; position: relative; z-index: 1; background: transparent; }
             .custom-footer {
               margin-top: auto;
               margin-right: 20px;
@@ -424,15 +426,15 @@ function OPDPage() {
           <div class="main-content">
             <div class="content-wrapper">
               <div class="watermark">
-              ${settings.logoUrl ? `<img src="${settings.logoUrl}" alt="Watermark" />` : ''}
-            </div>
+                <img src="${logoUrl}" alt="Watermark" onerror="this.src='/lifecare-logo.jpg'" />
+              </div>
             <div class="top-section">
               <div class="logo-container">
-                ${settings.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ''}
+                <img src="${logoUrl}" alt="Hospital Logo" onerror="this.src='/lifecare-logo.jpg'" />
               </div>
               <div class="helpline-circle">
                 <span class="helpline-title">Help Line :</span>
-                <span class="helpline-number">${settings.helpline || 'N/A'}</span>
+                <span class="helpline-number">${settings.helpline || '7016124362'}</span>
               </div>
             </div>
             
@@ -794,7 +796,7 @@ function PrescriptionPrint({ p, rx, hospitalSettings }: { p: Patient; rx: Prescr
   return (
     <div className="print-area space-y-4">
       <div className="border-2 border-dashed rounded-lg p-3 text-center text-xs text-muted-foreground">
-        {hospitalSettings.logoUrl && <img src={hospitalSettings.logoUrl} alt="Logo" className="mx-auto max-h-12 mb-2" />}
+        <img src={hospitalSettings.logoUrl || '/lifecare-logo.jpg'} alt="Logo" className="mx-auto max-h-12 mb-2" onError={(e) => { e.currentTarget.src = '/lifecare-logo.jpg'; }} />
         {hospitalSettings.address || "Hospital Letterhead — to be added"}
       </div>
       <div className="grid grid-cols-2 gap-3 text-sm">

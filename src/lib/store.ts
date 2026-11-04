@@ -64,7 +64,6 @@ export interface Patient {
   pastOperations?: PastOperation[];
   ward?: string;
   wardNumber?: string;
-  wardHistory?: { ward: string; wardNumber: string; }[];
   relativeName?: string;
   relation?: string;
   relativePhone?: string;
@@ -86,6 +85,11 @@ export interface Patient {
   mlcCurrentCondition?: string;
   mlcNameOfFiller?: string;
   mlcFillerMoNo?: string;
+  mlcPermanentAddress?: string;
+  mlcReportedPoliceStation?: string;
+  mlcPoliceInspectorName?: string;
+  mlcPoliceStationAddress?: string;
+  mlcFirOrCcNumber?: string;
 }
 
 export interface PrescribedMedicine {
@@ -156,49 +160,20 @@ interface DB {
 const KEY = "hms.db.v1";
 
 const seed = (): DB => ({
-  employees: [
-    { id: "e1", code: "EMP-0001", name: "Dr. Aisha Khan", email: "aisha@hms.local", password: "admin123", phone: "9876543210", department: "General Medicine", role: "Admin", joiningDate: "2023-01-10", address: "12 Park Ave", active: true },
-    { id: "e2", code: "EMP-0002", name: "Dr. Ravi Patel", email: "ravi@hms.local", password: "doctor123", phone: "9876500002", department: "Cardiology", role: "Doctor", joiningDate: "2023-04-01", address: "22 Lake Rd", active: true },
-    { id: "e3", code: "EMP-0003", name: "Priya Nair", email: "priya@hms.local", password: "recep123", phone: "9876500003", department: "Reception", role: "Receptionist", joiningDate: "2024-02-15", address: "5 Rose St", active: true },
-    { id: "e4", code: "EMP-0004", name: "Sanjay Verma", email: "sanjay@hms.local", password: "pharm123", phone: "9876500004", department: "Pharmacy", role: "Pharmacist", joiningDate: "2024-05-20", address: "9 Elm St", active: true },
-  ],
-  departments: [
-    { id: "d1", name: "General Medicine" },
-    { id: "d2", name: "Cardiology" },
-    { id: "d3", name: "Pediatrics" },
-    { id: "d4", name: "Orthopedics" },
-    { id: "d5", name: "Reception" },
-    { id: "d6", name: "Pharmacy" },
-  ],
-  charges: [
-    { id: "c1", name: "OPD Charge", amount: 300 },
-    { id: "c2", name: "Registration Charge", amount: 100 },
-    { id: "c3", name: "IPD Admission Charge", amount: 2500 },
-  ],
-  categories: [
-    { id: "c1", name: "Tablet", unit: "Strips", piecesPerUnit: 10 },
-    { id: "c2", name: "Syrup", unit: "Bottles", piecesPerUnit: 1 },
-    { id: "c3", name: "Injection", unit: "Vials", piecesPerUnit: 1 }
-  ],
-  ipdWards: [
-    { id: "w1", name: "General Ward", pricePerDay: 500 },
-    { id: "w2", name: "Private Room", pricePerDay: 2000 },
-    { id: "w3", name: "ICU", pricePerDay: 5000 }
-  ],
+  employees: [],
+  departments: [],
+  charges: [],
+  categories: [],
+  ipdWards: [],
   patients: [],
   prescriptions: [],
-  medicines: [
-    { id: "m1", name: "Paracetamol 500mg", categoryId: "cat1", mfgDate: "2025-01-01", expDate: "2027-01-01", quantity: 50, mrp: 25, batch: "PC-A21" },
-    { id: "m2", name: "Amoxicillin 250mg", categoryId: "cat4", mfgDate: "2024-06-01", expDate: "2026-06-01", quantity: 30, mrp: 60, batch: "AM-B12" },
-    { id: "m3", name: "Cough Syrup", categoryId: "cat2", mfgDate: "2025-02-01", expDate: "2026-08-01", quantity: 15, mrp: 90, batch: "CS-42" },
-    { id: "m4", name: "Insulin Injection", categoryId: "cat3", mfgDate: "2025-03-01", expDate: "2026-03-01", quantity: 8, mrp: 250, batch: "IN-77" },
-  ],
+  medicines: [],
   bills: [],
-  seq: { employee: 4, patient: 0 },
+  seq: { employee: 0, patient: 0 },
   hospitalSettings: { 
     helpline: "93 74 108 108 / 8000 8111", 
     address: "Vijardiya", 
-    logoUrl: "", 
+    logoUrl: "/lifecare-logo.jpg", 
     followUpValidityMonths: 3,
     bankAccountName: "",
     bankAccountNumber: "",
@@ -227,13 +202,15 @@ function load(): DB {
       cache.hospitalSettings = { 
         helpline: "93 74 108 108 / 8000 8111", 
         address: "Vijardiya", 
-        logoUrl: "/logo.jpg",
+        logoUrl: "/lifecare-logo.jpg",
         followUpValidityMonths: 3,
         bankAccountName: "",
         bankAccountNumber: "",
         bankName: "",
         bankIfscCode: ""
       };
+    } else if (!cache.hospitalSettings.logoUrl || cache.hospitalSettings.logoUrl === "/logo.png" || cache.hospitalSettings.logoUrl === "/logo.jpg") {
+      cache.hospitalSettings.logoUrl = "/lifecare-logo.jpg";
     }
     if (!cache.ipdWards) {
       cache.ipdWards = seed().ipdWards;

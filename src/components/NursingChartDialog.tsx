@@ -296,64 +296,24 @@ export function NursingChartDialog({ patient, settings, onClose, onSave, initial
     setMedRows((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const generateVitalsTimes = (admissionDateStr: string, stepHours: number): string[] => {
+  const generateVitalsTimes = (stepHours: number): string[] => {
     // Use current time when printing so chart reflects the active shift starting from print time
-    const baseDate = new Date();
-    const startHour = baseDate.getHours();
+    const base = new Date();
+    const current = new Date(base);
 
-    let targetBoundaryHour: number;
-    let isNextDay = false;
-
-    if (startHour >= 8 && startHour < 20) {
-      targetBoundaryHour = 20; // 8 PM today
-    } else if (startHour >= 20) {
-      targetBoundaryHour = 8; // 8 AM next day
-      isNextDay = true;
-    } else {
-      targetBoundaryHour = 8; // 8 AM today
-    }
+    // The shift always closes at the next 8 AM, so a morning admission prints a full day-plus-night chart.
+    const boundary = new Date(base);
+    if (base.getHours() >= 8) boundary.setDate(boundary.getDate() + 1);
+    boundary.setHours(8, 0, 0, 0);
 
     const times: string[] = [];
-    const current = new Date(baseDate);
-
-    let maxSteps = 24;
-    while (maxSteps > 0) {
+    while (current <= boundary && times.length < 48) {
       const h = current.getHours();
       const ampm = h >= 12 ? "PM" : "AM";
       const displayH = h % 12 === 0 ? 12 : h % 12;
       const mStr = current.getMinutes().toString().padStart(2, "0");
-      const timeFormatted = `${displayH}:${mStr} ${ampm}`;
-      times.push(timeFormatted);
-
-      // Advance by interval
+      times.push(`${displayH}:${mStr} ${ampm}`);
       current.setHours(current.getHours() + stepHours);
-
-      if (targetBoundaryHour === 20) {
-        if (current.getHours() > 20 || (current.getHours() === 20 && current.getMinutes() > 0) || current.getDate() !== baseDate.getDate()) {
-          if (current.getHours() === 20 && current.getMinutes() === 0 && current.getDate() === baseDate.getDate()) {
-            times.push("8:00 PM");
-          }
-          break;
-        }
-      } else {
-        if (isNextDay) {
-          if (current.getDate() > baseDate.getDate() && (current.getHours() > 8 || (current.getHours() === 8 && current.getMinutes() > 0))) {
-            if (current.getHours() === 8 && current.getMinutes() === 0) {
-              times.push("8:00 AM");
-            }
-            break;
-          }
-        } else {
-          if (current.getHours() > 8 || (current.getHours() === 8 && current.getMinutes() > 0) || current.getDate() !== baseDate.getDate()) {
-            if (current.getHours() === 8 && current.getMinutes() === 0 && current.getDate() === baseDate.getDate()) {
-              times.push("8:00 AM");
-            }
-            break;
-          }
-        }
-      }
-
-      maxSteps--;
     }
 
     return times;
@@ -361,7 +321,7 @@ export function NursingChartDialog({ patient, settings, onClose, onSave, initial
 
   const handlePrint = () => {
     const step = parseInt(intervalHours, 10) || 2;
-    const generatedTimes = generateVitalsTimes(patient.registeredAt, step);
+    const generatedTimes = generateVitalsTimes(step);
 
     let printIframe = document.getElementById("print-iframe") as HTMLIFrameElement;
     if (!printIframe) {
@@ -493,21 +453,35 @@ export function NursingChartDialog({ patient, settings, onClose, onSave, initial
             .helpline-title { font-size: 13px; margin-bottom: 3px; }
             .helpline-number { font-size: 16px; font-weight: bold; }
 
+            .page-container {
+              position: relative;
+              background: transparent;
+            }
             .watermark {
-              position: fixed;
-              top: 30%;
-              left: 10%;
+              position: absolute;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              -webkit-transform: translate(-50%, -50%);
+              opacity: 0.13;
+              z-index: 0;
+              pointer-events: none;
+              width: 100%;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+            }
+            .watermark img {
               width: 80%;
-              height: 40%;
-              background-image: url('${logoUrl}');
-              background-size: contain;
-              background-position: center;
-              background-repeat: no-repeat;
-              opacity: 0.15;
+              max-width: 700px;
+              object-fit: contain;
               transform: rotate(-30deg);
               -webkit-transform: rotate(-30deg);
-              z-index: -1;
-              pointer-events: none;
+            }
+            .chart-content {
+              position: relative;
+              z-index: 1;
+              background: transparent;
             }
 
             .page-break {
@@ -600,19 +574,21 @@ export function NursingChartDialog({ patient, settings, onClose, onSave, initial
           </style>
         </head>
         <body>
-          <div class="watermark"></div>
-
           <!-- PAGE 1: INJECTION / MEDICATION CHART -->
           <div class="page-container">
-            <div class="top-section">
-              <div class="logo-container">
-                <img src="${logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />
-              </div>
-              <div class="helpline-circle">
-                <span class="helpline-title">Help Line No :</span>
-                <span class="helpline-number">${helpline}</span>
-              </div>
+            <div class="watermark">
+              <img src="${logoUrl}" alt="Watermark" onerror="this.src='/lifecare-logo.jpg'" />
             </div>
+            <div class="chart-content">
+              <div class="top-section">
+                <div class="logo-container">
+                  <img src="${logoUrl}" alt="Hospital Logo" onerror="this.src='/lifecare-logo.jpg'" />
+                </div>
+                <div class="helpline-circle">
+                  <span class="helpline-title">Help Line No :</span>
+                  <span class="helpline-number">${helpline}</span>
+                </div>
+              </div>
 
             <div class="page-padding">
               <div class="outer-border-box">
@@ -668,19 +644,24 @@ export function NursingChartDialog({ patient, settings, onClose, onSave, initial
                 </div>
               </div>
             </div>
+            </div>
           </div>
 
           <!-- PAGE 2: VITALS CHART -->
           <div class="page-container page-break">
-            <div class="top-section">
-              <div class="logo-container">
-                <img src="${logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />
-              </div>
-              <div class="helpline-circle">
-                <span class="helpline-title">Help Line No :</span>
-                <span class="helpline-number">${helpline}</span>
-              </div>
+            <div class="watermark">
+              <img src="${logoUrl}" alt="Watermark" onerror="this.src='/lifecare-logo.jpg'" />
             </div>
+            <div class="chart-content">
+              <div class="top-section">
+                <div class="logo-container">
+                  <img src="${logoUrl}" alt="Hospital Logo" onerror="this.src='/lifecare-logo.jpg'" />
+                </div>
+                <div class="helpline-circle">
+                  <span class="helpline-title">Help Line No :</span>
+                  <span class="helpline-number">${helpline}</span>
+                </div>
+              </div>
 
             <div class="page-padding">
               <div class="outer-border-box">
@@ -740,12 +721,20 @@ export function NursingChartDialog({ patient, settings, onClose, onSave, initial
                 </table>
               </div>
             </div>
+            </div>
           </div>
 
           <script>
-            setTimeout(function() {
+            var printed = false;
+            function doPrint() {
+              if (printed) return;
+              printed = true;
               window.print();
-            }, 250);
+            }
+            window.onload = function() {
+              setTimeout(doPrint, 200);
+            };
+            setTimeout(doPrint, 800);
           </script>
         </body>
       </html>
@@ -803,7 +792,7 @@ export function NursingChartDialog({ patient, settings, onClose, onSave, initial
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground mt-1">
-              Time column on Page 2 starts from admission ({new Date(patient.registeredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}) up to the 8-to-8 shift boundary.
+              Time column on Page 2 starts from the print time ({new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}) and runs up to 8 AM the next day.
             </p>
           </div>
 

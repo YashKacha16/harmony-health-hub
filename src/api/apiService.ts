@@ -129,7 +129,6 @@ export interface PatientBackendDto {
   pastOperations: PastOperationBackendDto[];
   ward?: string;
   wardNumber?: string;
-  wardHistory?: { ward: string; wardNumber: string; }[];
   relativeName?: string;
   relation?: string;
   relativePhone?: string;
@@ -150,6 +149,11 @@ export interface PatientBackendDto {
   mlcCurrentCondition?: string;
   mlcNameOfFiller?: string;
   mlcFillerMoNo?: string;
+  mlcPermanentAddress?: string;
+  mlcReportedPoliceStation?: string;
+  mlcPoliceInspectorName?: string;
+  mlcPoliceStationAddress?: string;
+  mlcFirOrCcNumber?: string;
 }
 
 export interface CreatePatientPayload {
@@ -177,7 +181,6 @@ export interface CreatePatientPayload {
   pastOperations?: PastOperationBackendDto[];
   ward?: string;
   wardNumber?: string;
-  wardHistory?: { ward: string; wardNumber: string; }[];
   relativeName?: string;
   relation?: string;
   relativePhone?: string;
@@ -198,6 +201,11 @@ export interface CreatePatientPayload {
   mlcCurrentCondition?: string;
   mlcNameOfFiller?: string;
   mlcFillerMoNo?: string;
+  mlcPermanentAddress?: string;
+  mlcReportedPoliceStation?: string;
+  mlcPoliceInspectorName?: string;
+  mlcPoliceStationAddress?: string;
+  mlcFirOrCcNumber?: string;
 }
 
 export interface UpdatePatientPayload {
@@ -226,7 +234,6 @@ export interface UpdatePatientPayload {
   pastOperations?: PastOperationBackendDto[];
   ward?: string;
   wardNumber?: string;
-  wardHistory?: { ward: string; wardNumber: string; }[];
   relativeName?: string;
   relation?: string;
   relativePhone?: string;
@@ -247,6 +254,11 @@ export interface UpdatePatientPayload {
   mlcCurrentCondition?: string;
   mlcNameOfFiller?: string;
   mlcFillerMoNo?: string;
+  mlcPermanentAddress?: string;
+  mlcReportedPoliceStation?: string;
+  mlcPoliceInspectorName?: string;
+  mlcPoliceStationAddress?: string;
+  mlcFirOrCcNumber?: string;
 }
 
 export interface CreateEmployeePayload {
@@ -351,6 +363,18 @@ export interface SaveRolePermissionPayload {
   actionName: string;
   isAllowed: boolean;
   isLocked: boolean;
+}
+
+export interface HospitalSettingsBackendDto {
+  id?: number;
+  helpline: string;
+  address: string;
+  logoUrl: string;
+  followUpValidityMonths: number;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
+  bankIfscCode?: string;
 }
 
 export const apiService = {
@@ -584,6 +608,15 @@ export const apiService = {
     },
   },
   hospitalSettings: {
+    get: async (): Promise<HospitalSettingsBackendDto> => {
+      return apiClient<HospitalSettingsBackendDto>("/HospitalSettings");
+    },
+    update: async (payload: Partial<HospitalSettingsBackendDto>): Promise<void> => {
+      return apiClient<void>("/HospitalSettings", {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+    },
     uploadLogo: async (file: File): Promise<{ logoUrl: string }> => {
       const formData = new FormData();
       formData.append("file", file);

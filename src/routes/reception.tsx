@@ -33,12 +33,12 @@ interface Draft {
   weight: string; height: string; caste: string;
   addressLine: string; state: string; city: string; pincode: string;
   type: "OPD" | "IPD" | "FollowUp";
-  department: string; doctor: string; opdCharge: string;
+  department: string; doctor: string; opdChargeId: string;
   hasAllergy: boolean; allergy: string; 
   hasDeformity: boolean; deformity: string; complaint: string;
   mediclaim: boolean; insuranceCompany: string; policyNumber: string;
   hasPastOps: boolean; pastOperations: PastOperation[];
-  wardHistory: { ward: string; wardNumber: string; }[];
+  ward: string; wardNumber: string;
   relativeName?: string;
   relation?: string;
   relativePhone?: string;
@@ -60,13 +60,19 @@ interface Draft {
   mlcCurrentCondition?: string;
   mlcNameOfFiller?: string;
   mlcFillerMoNo?: string;
+  mlcPermanentAddress?: string;
+  mlcPermanentSameAsCurrent: boolean;
+  mlcReportedPoliceStation?: string;
+  mlcPoliceInspectorName?: string;
+  mlcPoliceStationAddress?: string;
+  mlcFirOrCcNumber?: string;
 }
 
 let cachedDraft: Draft | null = null;
 
 function ReceptionPage() {
   const db = useDB();
-  const opdCharge = db.charges.find((c) => c.name === "OPD Charge")?.amount ?? 0;
+  const defaultOpdCharge = db.charges.find((c) => c.name === "OPD Charge");
 
   useEffect(() => {
     settingsService.listCharges();
@@ -79,17 +85,19 @@ function ReceptionPage() {
     weight: "", height: "", caste: "",
     addressLine: "", state: "", city: "", pincode: "",
     type: "OPD",
-    department: db.departments[0]?.name || "", doctor: "", opdCharge: String(opdCharge),
+    department: db.departments[0]?.name || "", doctor: "", opdChargeId: defaultOpdCharge?.id ?? "",
     hasAllergy: false, allergy: "", 
     hasDeformity: false, deformity: "", complaint: "",
     mediclaim: false, insuranceCompany: "", policyNumber: "",
     hasPastOps: false, pastOperations: [],
-    wardHistory: [{ ward: "", wardNumber: "" }],
+    ward: "", wardNumber: "",
     relativeName: "", relation: "", relativePhone: "", relativeAddress: "",
     maritalStatus: "", child: "", occupation: "", religion: "",
     isMlc: false, mlcDrIncharge: "", mlcMedicalOfficer: "", mlcDetailOfMatter: "",
     mlcDateOfMatter: "", mlcTimeOfMatter: "", mlcCauseOfMatter: "", mlcPlaceOfMatter: "",
     mlcAnyOfHospitalisedPastHO: "", mlcCurrentCondition: "", mlcNameOfFiller: "", mlcFillerMoNo: "",
+    mlcPermanentAddress: "", mlcPermanentSameAsCurrent: false, mlcReportedPoliceStation: "", mlcPoliceInspectorName: "",
+    mlcPoliceStationAddress: "", mlcFirOrCcNumber: "",
   };
 
   const [d, setD] = useState<Draft>(cachedDraft || initial);
@@ -116,6 +124,7 @@ function ReceptionPage() {
     if (!d.name || !d.phone || !d.age) return toast.error("Fill required patient fields");
     if (d.phone.length !== 10) return toast.error("Phone number must be exactly 10 digits");
     if (!d.department || !d.doctor) return toast.error("Select department and doctor");
+    const withFullDemographics = d.type === "IPD" || d.isMlc;
     const patient = await receptionService.registerPatient({
       name: d.name, phone: d.phone, age: Number(d.age), gender: d.gender,
       weight: d.weight ? Number(d.weight) : undefined,
@@ -124,7 +133,7 @@ function ReceptionPage() {
       addressLine: d.addressLine, state: d.state, city: d.city, pincode: d.pincode,
       type: d.type === "FollowUp" ? "OPD" : d.type,
       department: d.department, doctor: d.doctor,
-      opdCharge: Number(d.opdCharge) || 0,
+      opdCharge: db.charges.find((c) => c.id === d.opdChargeId)?.amount ?? 0,
       allergy: d.hasAllergy ? d.allergy : undefined,
       deformity: d.hasDeformity ? d.deformity : undefined,
       complaint: d.complaint || undefined,
@@ -132,17 +141,16 @@ function ReceptionPage() {
       insuranceCompany: d.mediclaim ? d.insuranceCompany : undefined,
       policyNumber: d.mediclaim ? d.policyNumber : undefined,
       pastOperations: d.hasPastOps ? d.pastOperations : undefined,
-      ward: (d.type === "IPD" && d.wardHistory.length > 0) ? d.wardHistory.map(w => w.ward).filter(Boolean).join(" & ") : undefined,
-      wardNumber: (d.type === "IPD" && d.wardHistory.length > 0) ? d.wardHistory.map(w => w.wardNumber).filter(Boolean).join(" & ") : undefined,
-      wardHistory: d.type === "IPD" ? d.wardHistory.filter(w => w.ward) : undefined,
-      relativeName: d.type === "IPD" ? d.relativeName : undefined,
-      relation: d.type === "IPD" ? d.relation : undefined,
-      relativePhone: d.type === "IPD" ? d.relativePhone : undefined,
-      relativeAddress: d.type === "IPD" ? d.relativeAddress : undefined,
-      maritalStatus: d.type === "IPD" ? d.maritalStatus : undefined,
-      child: d.type === "IPD" ? d.child : undefined,
-      occupation: d.type === "IPD" ? d.occupation : undefined,
-      religion: d.type === "IPD" ? d.religion : undefined,
+      ward: d.type === "IPD" ? d.ward || undefined : undefined,
+      wardNumber: d.type === "IPD" ? d.wardNumber || undefined : undefined,
+      relativeName: withFullDemographics ? d.relativeName : undefined,
+      relation: withFullDemographics ? d.relation : undefined,
+      relativePhone: withFullDemographics ? d.relativePhone : undefined,
+      relativeAddress: withFullDemographics ? d.relativeAddress : undefined,
+      maritalStatus: withFullDemographics ? d.maritalStatus : undefined,
+      child: withFullDemographics ? d.child : undefined,
+      occupation: withFullDemographics ? d.occupation : undefined,
+      religion: withFullDemographics ? d.religion : undefined,
       isMlc: d.isMlc,
       mlcDrIncharge: d.isMlc ? d.mlcDrIncharge : undefined,
       mlcMedicalOfficer: d.isMlc ? d.mlcMedicalOfficer : undefined,
@@ -155,6 +163,11 @@ function ReceptionPage() {
       mlcCurrentCondition: d.isMlc ? d.mlcCurrentCondition : undefined,
       mlcNameOfFiller: d.isMlc ? d.mlcNameOfFiller : undefined,
       mlcFillerMoNo: d.isMlc ? d.mlcFillerMoNo : undefined,
+      mlcPermanentAddress: d.isMlc && !d.mlcPermanentSameAsCurrent ? d.mlcPermanentAddress : undefined,
+      mlcReportedPoliceStation: d.isMlc ? d.mlcReportedPoliceStation : undefined,
+      mlcPoliceInspectorName: d.isMlc ? d.mlcPoliceInspectorName : undefined,
+      mlcPoliceStationAddress: d.isMlc ? d.mlcPoliceStationAddress : undefined,
+      mlcFirOrCcNumber: d.isMlc ? d.mlcFirOrCcNumber : undefined,
     });
     if (d.type === "IPD") {
       setConsentPatient(patient);
@@ -231,6 +244,14 @@ function ReceptionPage() {
         policyNumber: patientData.policyNumber || "",
         hasPastOps: !!(patientData.pastOperations && patientData.pastOperations.length > 0),
         pastOperations: patientData.pastOperations || [],
+        relativeName: patientData.relativeName || "",
+        relation: patientData.relation || "",
+        relativePhone: patientData.relativePhone || "",
+        relativeAddress: patientData.relativeAddress || "",
+        maritalStatus: patientData.maritalStatus || "",
+        child: patientData.child || "",
+        occupation: patientData.occupation || "",
+        religion: patientData.religion || "",
         isMlc: !!patientData.isMlc,
         mlcDrIncharge: patientData.mlcDrIncharge || "",
         mlcMedicalOfficer: patientData.mlcMedicalOfficer || "",
@@ -243,6 +264,12 @@ function ReceptionPage() {
         mlcCurrentCondition: patientData.mlcCurrentCondition || "",
         mlcNameOfFiller: patientData.mlcNameOfFiller || "",
         mlcFillerMoNo: patientData.mlcFillerMoNo || "",
+        mlcPermanentAddress: patientData.mlcPermanentAddress || "",
+        mlcPermanentSameAsCurrent: !!patientData.isMlc && !patientData.mlcPermanentAddress,
+        mlcReportedPoliceStation: patientData.mlcReportedPoliceStation || "",
+        mlcPoliceInspectorName: patientData.mlcPoliceInspectorName || "",
+        mlcPoliceStationAddress: patientData.mlcPoliceStationAddress || "",
+        mlcFirOrCcNumber: patientData.mlcFirOrCcNumber || "",
       });
       toast.success("Patient details loaded for follow-up.");
       setShowResults(false);
@@ -281,18 +308,6 @@ function ReceptionPage() {
     set("pastOperations", arr);
   };
   const rmOp = (i: number) => set("pastOperations", d.pastOperations.filter((_, idx) => idx !== i));
-
-  const addWard = () => {
-    if (d.wardHistory.length < 2) {
-      set("wardHistory", [...d.wardHistory, { ward: "", wardNumber: "" }]);
-    }
-  };
-  const updWard = (i: number, k: "ward" | "wardNumber", v: string) => {
-    const arr = [...d.wardHistory];
-    arr[i] = { ...arr[i], [k]: v };
-    set("wardHistory", arr);
-  };
-  const rmWard = (i: number) => set("wardHistory", d.wardHistory.filter((_, idx) => idx !== i));
 
   return (
     <div className="space-y-5">
@@ -402,7 +417,7 @@ function ReceptionPage() {
                       </SelectContent>
                     </Select>
                   </Field>
-                  <Field label="Child"><Input value={d.child} onChange={(e) => set("child", e.target.value)} placeholder="No. of children" /></Field>
+                  <Field label="Child"><Input value={d.child} maxLength={2} onChange={(e) => set("child", e.target.value.replace(/\D/g, ""))} placeholder="No. of children" /></Field>
                   <Field label="Occupation"><Input value={d.occupation} onChange={(e) => set("occupation", e.target.value)} /></Field>
                   <Field label="Religion"><Input value={d.religion} onChange={(e) => set("religion", e.target.value)} /></Field>
                 </>
@@ -438,15 +453,15 @@ function ReceptionPage() {
                 </Select>
               </Field>
               <Field label="OPD Charge">
-                <Select value={d.opdCharge} onValueChange={(v) => set("opdCharge", v)}>
+                <Select value={d.opdChargeId} onValueChange={(v) => set("opdChargeId", v)}>
                   <SelectTrigger><SelectValue placeholder="Select charge" /></SelectTrigger>
                   <SelectContent>
                     {db.charges.map((c) => (
-                      <SelectItem key={c.id} value={c.amount.toString()}>
+                      <SelectItem key={c.id} value={c.id}>
                         {c.name} (₹{c.amount})
                       </SelectItem>
                     ))}
-                    {db.charges.length === 0 && <SelectItem value="0" disabled>No charges available</SelectItem>}
+                    {db.charges.length === 0 && <SelectItem value="__none" disabled>No charges available</SelectItem>}
                   </SelectContent>
                 </Select>
               </Field>
@@ -474,34 +489,21 @@ function ReceptionPage() {
                   </Select>
                 </Field>
               </div>
-              <div className="mt-3 space-y-3">
-                <div className="font-medium text-sm text-muted-foreground mb-2">Wards (Max 2)</div>
-                {d.wardHistory.map((wh, i) => (
-                  <div key={i} className="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end rounded-lg border p-3 bg-muted/30">
-                    <Field label="Ward" className="lg:col-span-2">
-                      <Select value={wh.ward} onValueChange={(v) => updWard(i, "ward", v)}>
-                        <SelectTrigger><SelectValue placeholder="Select ward" /></SelectTrigger>
-                        <SelectContent>
-                          {db.ipdWards?.map((w) => (
-                            <SelectItem key={w.id} value={w.name}>{w.name}</SelectItem>
-                          ))}
-                          {(!db.ipdWards || db.ipdWards.length === 0) && <SelectItem value="__none" disabled>No wards configured</SelectItem>}
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                    <Field label="Ward Number" className="lg:col-span-2">
-                      <Input value={wh.wardNumber} onChange={(e) => updWard(i, "wardNumber", e.target.value)} placeholder="e.g. W-12" />
-                    </Field>
-                    <div className="flex gap-2 h-[36px]">
-                      {d.wardHistory.length > 1 && (
-                        <Button variant="ghost" size="icon" onClick={() => rmWard(i)}><Trash2 className="h-4 w-4" /></Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {d.wardHistory.length < 2 && (
-                  <Button variant="outline" size="sm" onClick={addWard}><Plus className="h-4 w-4 mr-1" /> Add Ward</Button>
-                )}
+              <div className="mt-3 grid sm:grid-cols-2 gap-4">
+                <Field label="Ward">
+                  <Select value={d.ward} onValueChange={(v) => set("ward", v)}>
+                    <SelectTrigger><SelectValue placeholder="Select ward" /></SelectTrigger>
+                    <SelectContent>
+                      {db.ipdWards?.map((w) => (
+                        <SelectItem key={w.id} value={w.name}>{w.name}</SelectItem>
+                      ))}
+                      {(!db.ipdWards || db.ipdWards.length === 0) && <SelectItem value="__none" disabled>No wards configured</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Ward Number">
+                  <Input value={d.wardNumber} onChange={(e) => set("wardNumber", e.target.value)} placeholder="e.g. W-12" />
+                </Field>
               </div>
             </Section>
           )}
@@ -577,16 +579,80 @@ function ReceptionPage() {
                 <Label htmlFor="isMlc">Is this a Medico-Legal Case (MLC)?</Label>
               </div>
               {d.isMlc && (
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 border p-4 rounded-lg bg-muted/20">
-                  <Field label="Date of Matter"><Input type="date" value={d.mlcDateOfMatter} onChange={(e) => set("mlcDateOfMatter", e.target.value)} /></Field>
-                  <Field label="Time of Matter"><Input type="time" value={d.mlcTimeOfMatter} onChange={(e) => set("mlcTimeOfMatter", e.target.value)} /></Field>
-                  <Field label="Cause of Matter"><Input value={d.mlcCauseOfMatter} onChange={(e) => set("mlcCauseOfMatter", e.target.value)} /></Field>
-                  <Field label="Place of Matter"><Input value={d.mlcPlaceOfMatter} onChange={(e) => set("mlcPlaceOfMatter", e.target.value)} /></Field>
-                  <Field label="Any Hospitalized Past H/O" className="lg:col-span-3"><Input value={d.mlcAnyOfHospitalisedPastHO} onChange={(e) => set("mlcAnyOfHospitalisedPastHO", e.target.value)} /></Field>
-                  <Field label="Detail of Matter" className="lg:col-span-3"><Textarea rows={2} value={d.mlcDetailOfMatter} onChange={(e) => set("mlcDetailOfMatter", e.target.value)} /></Field>
-                  <Field label="Current Condition" className="lg:col-span-3"><Textarea rows={2} value={d.mlcCurrentCondition} onChange={(e) => set("mlcCurrentCondition", e.target.value)} /></Field>
-                  <Field label="Name of Filler"><Input value={d.mlcNameOfFiller} onChange={(e) => set("mlcNameOfFiller", e.target.value)} /></Field>
-                  <Field label="Filler Mo No."><Input value={d.mlcFillerMoNo} maxLength={10} onChange={(e) => set("mlcFillerMoNo", e.target.value.replace(/\D/g, ''))} /></Field>
+                <div className="space-y-5 border p-4 rounded-lg bg-muted/20">
+                  {d.type !== "IPD" && (
+                    <Group title="Patient particulars">
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <Field label="Marital Status">
+                          <Select value={d.maritalStatus} onValueChange={(v) => set("maritalStatus", v)}>
+                            <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Single">Single</SelectItem>
+                              <SelectItem value="Married">Married</SelectItem>
+                              <SelectItem value="Divorced">Divorced</SelectItem>
+                              <SelectItem value="Widowed">Widowed</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                        <Field label="Child"><Input value={d.child} maxLength={2} onChange={(e) => set("child", e.target.value.replace(/\D/g, ""))} placeholder="No. of children" /></Field>
+                        <Field label="Occupation"><Input value={d.occupation} onChange={(e) => set("occupation", e.target.value)} /></Field>
+                        <Field label="Religion"><Input value={d.religion} onChange={(e) => set("religion", e.target.value)} /></Field>
+                      </div>
+                    </Group>
+                  )}
+
+                  {d.type !== "IPD" && (
+                    <Group title="Relative currently with patient">
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <Field label="Relative Name"><Input value={d.relativeName} onChange={(e) => set("relativeName", e.target.value)} /></Field>
+                        <Field label="Relation"><Input value={d.relation} onChange={(e) => set("relation", e.target.value)} /></Field>
+                        <Field label="Mobile No. of Relative"><Input value={d.relativePhone} maxLength={10} onChange={(e) => set("relativePhone", e.target.value.replace(/\D/g, ''))} /></Field>
+                        <Field label="Relative Address" className="lg:col-span-3"><Input value={d.relativeAddress} onChange={(e) => set("relativeAddress", e.target.value)} /></Field>
+                      </div>
+                    </Group>
+                  )}
+
+                  <Group title="Address">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Checkbox id="mlcPermanentSameAsCurrent" checked={d.mlcPermanentSameAsCurrent} onCheckedChange={(v) => { set("mlcPermanentSameAsCurrent", !!v); if (v) set("mlcPermanentAddress", ""); }} />
+                        <Label htmlFor="mlcPermanentSameAsCurrent">Permanent address same as current address</Label>
+                      </div>
+                      {!d.mlcPermanentSameAsCurrent && (
+                        <Field label="Permanent Address"><Textarea rows={2} value={d.mlcPermanentAddress} onChange={(e) => set("mlcPermanentAddress", e.target.value)} /></Field>
+                      )}
+                    </div>
+                  </Group>
+
+                  <Group title="Case details">
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <Field label="Date of Matter"><Input type="date" value={d.mlcDateOfMatter} onChange={(e) => set("mlcDateOfMatter", e.target.value)} /></Field>
+                      <Field label="Time of Matter"><Input type="time" value={d.mlcTimeOfMatter} onChange={(e) => set("mlcTimeOfMatter", e.target.value)} /></Field>
+                      <Field label="Cause of Matter"><Input value={d.mlcCauseOfMatter} onChange={(e) => set("mlcCauseOfMatter", e.target.value)} /></Field>
+                      <Field label="Place of Matter"><Input value={d.mlcPlaceOfMatter} onChange={(e) => set("mlcPlaceOfMatter", e.target.value)} /></Field>
+                      <Field label="Any Hospitalized Past H/O" className="lg:col-span-3"><Input value={d.mlcAnyOfHospitalisedPastHO} onChange={(e) => set("mlcAnyOfHospitalisedPastHO", e.target.value)} /></Field>
+                      <Field label="Detail of Matter" className="lg:col-span-3"><Textarea rows={2} value={d.mlcDetailOfMatter} onChange={(e) => set("mlcDetailOfMatter", e.target.value)} /></Field>
+                      <Field label="Current Condition" className="lg:col-span-3"><Textarea rows={2} value={d.mlcCurrentCondition} onChange={(e) => set("mlcCurrentCondition", e.target.value)} /></Field>
+                    </div>
+                  </Group>
+
+                  <Group title="Police information">
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <Field label="Reported Police Station"><Input value={d.mlcReportedPoliceStation} onChange={(e) => set("mlcReportedPoliceStation", e.target.value)} /></Field>
+                      <Field label="Name of PI (Police Inspector)"><Input value={d.mlcPoliceInspectorName} onChange={(e) => set("mlcPoliceInspectorName", e.target.value)} /></Field>
+                      <Field label="FIR / CC Number"><Input value={d.mlcFirOrCcNumber} onChange={(e) => set("mlcFirOrCcNumber", e.target.value)} /></Field>
+                      <Field label="Connected Police Station Address" className="lg:col-span-3"><Input value={d.mlcPoliceStationAddress} onChange={(e) => set("mlcPoliceStationAddress", e.target.value)} /></Field>
+                    </div>
+                  </Group>
+
+                  <Group title="Attending officials & filler">
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <Field label="Dr. Incharge"><Input value={d.mlcDrIncharge} onChange={(e) => set("mlcDrIncharge", e.target.value)} /></Field>
+                      <Field label="Medical Officer"><Input value={d.mlcMedicalOfficer} onChange={(e) => set("mlcMedicalOfficer", e.target.value)} /></Field>
+                      <Field label="Name of Filler"><Input value={d.mlcNameOfFiller} onChange={(e) => set("mlcNameOfFiller", e.target.value)} /></Field>
+                      <Field label="Filler Mo No."><Input value={d.mlcFillerMoNo} maxLength={10} onChange={(e) => set("mlcFillerMoNo", e.target.value.replace(/\D/g, ''))} /></Field>
+                    </div>
+                  </Group>
                 </div>
               )}
             </Section>
@@ -641,11 +707,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Field({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
   return <div className={`space-y-1.5 ${className}`}><Label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>{children}</div>;
 }
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{title}</h4>
+      {children}
+    </div>
+  );
+}
 
 function Receipt({ patient, settings }: { patient: Patient; settings?: any }) {
-  const logoSrc = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg'
-    ? settings.logoUrl
-    : '/lifecare-logo.jpg';
+  const logoSrc = '/lifecare-logo.jpg';
   let words = "";
   try {
     words = numberToWords.toWords(Math.round(patient.opdCharge || 0)).replace(/\b\w/g, (c) => c.toUpperCase());
@@ -766,401 +838,235 @@ function Receipt({ patient, settings }: { patient: Patient; settings?: any }) {
   );
 }
 
-const handlePrintReceipt = (patient: Patient, settings: any) => {
-  let printIframe = document.getElementById("print-iframe") as HTMLIFrameElement;
-  if (!printIframe) {
-    printIframe = document.createElement("iframe");
-    printIframe.id = "print-iframe";
-    printIframe.style.position = "fixed";
-    printIframe.style.right = "0";
-    printIframe.style.bottom = "0";
-    printIframe.style.width = "0";
-    printIframe.style.height = "0";
-    printIframe.style.border = "none";
-    document.body.appendChild(printIframe);
+const handlePrintReceipt = async (patient: Patient, settings: any) => {
+  // ── 1. Resolve logo and convert to embedded base64 ──
+  const rawLogoSrc = '/lifecare-logo.jpg';
+  const absoluteLogoUrl = `${window.location.origin}${rawLogoSrc}`;
+
+  let logoSrc = absoluteLogoUrl;
+  try {
+    const resp = await fetch(absoluteLogoUrl, {
+      mode: 'cors',
+      cache: 'force-cache',
+      headers: { 'ngrok-skip-browser-warning': 'true' },
+    });
+    if (resp.ok) {
+      const blob = await resp.blob();
+      logoSrc = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+  } catch {
+    // keep absoluteLogoUrl as fallback
   }
-  const printWindow = printIframe.contentWindow;
-  if (!printWindow) return;
 
-  const logoSrc = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg'
-    ? settings.logoUrl
-    : '/lifecare-logo.jpg';
-
+  // ── 2. Prepare receipt data ──
   let words = "";
   try {
-    words = numberToWords.toWords(Math.round(patient.opdCharge || 0)).replace(/\b\w/g, (c) => c.toUpperCase());
+    words = numberToWords
+      .toWords(Math.round(patient.opdCharge || 0))
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   } catch {
     words = `${patient.opdCharge}`;
   }
   const dt = new Date(patient.registeredAt);
 
-  const content = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>Receipt - ${patient.code}</title>
-        <style>
-          @page {
-            size: 80mm auto;
-            margin: 2mm 3mm;
-          }
-          * { box-sizing: border-box; margin: 0; padding: 0; }
-          body {
-            font-family: 'Courier New', Courier, monospace;
-            color: #000;
-            background: #fff;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            line-height: 1.3;
-            font-size: 11px;
-            width: 76mm;
-            max-width: 76mm;
-            margin: 0 auto;
-            padding: 2mm 0;
-          }
+  // ── 3. Build self-contained receipt HTML ──
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<base href="${window.location.origin}/"/>
+<title>Receipt - ${patient.code}</title>
+<style>
+@page{size:80mm auto;margin:0}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:80mm;max-width:80mm;margin:0;padding:0;background:#fff}
+body{font-family:'Courier New',Courier,monospace;color:#000;
+-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
+line-height:1.35;font-size:11px;padding:3mm}
+.pos-header{text-align:center;padding-bottom:0;margin-bottom:0}
+.header-row{display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:2.5mm}
+.logo-col{flex:0 0 68%;max-width:68%;display:flex;align-items:center;justify-content:center}
+.pos-logo{width:100%;max-width:100%;height:auto;object-fit:contain;display:block}
+.header-divider{width:1px;height:38px;background:#ccc;flex-shrink:0;margin:0 4px}
+.hl-col{flex:0 0 28%;max-width:28%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.hl-l{font-size:9.5px;line-height:1.2;text-align:center;white-space:nowrap;color:#e53e3e}
+.hl-n{font-size:15px;font-weight:bold;line-height:1.2;text-align:center;color:#e53e3e}
+.addr{font-size:8px;text-transform:uppercase;letter-spacing:.3px}
+.dash{border:0;border-top:1px dashed #000;margin:4px 0}
+.dbl{border:0;border-top:2px double #000;margin:4px 0}
+.stars{text-align:center;font-size:9px;letter-spacing:2px;margin:3px 0}
+.title{text-align:center;font-size:12px;font-weight:bold;text-transform:uppercase;
+letter-spacing:1px;padding:3px 0}
+.meta{display:flex;justify-content:space-between;font-size:9px;padding:1px 0}
+.row{display:flex;justify-content:space-between;padding:1.5px 0;font-size:10px}
+.row .l{flex-shrink:0}
+.row .v{font-weight:bold;text-align:right;word-break:break-word;max-width:55%}
+.ih{display:flex;justify-content:space-between;font-weight:bold;font-size:9px;
+padding:2px 0;text-transform:uppercase}
+.ir{padding:3px 0;font-size:10px}
+.in{font-weight:bold}
+.id{font-size:8px;padding-left:8px}
+.ia{display:flex;justify-content:space-between;padding-left:8px;font-size:10px}
+.tr{display:flex;justify-content:space-between;font-size:11px;font-weight:bold;padding:2px 0}
+.gt{font-size:13px;font-weight:bold}
+.pr{display:flex;justify-content:space-between;font-size:11px;font-weight:bold;padding:1px 0}
+.aw{font-size:8px;font-style:italic;text-align:center;padding:3px 0}
+.aw strong{font-style:normal}
+.ft{text-align:center;font-size:8px;padding-top:4px}
+.ft .ty{font-size:11px;font-weight:bold;margin-bottom:2px}
+.ft .gw{font-size:9px;margin-bottom:3px}
+.sb{display:inline-block;border:1.5px solid #000;padding:1px 10px;
+font-size:10px;font-weight:bold;letter-spacing:2px;margin:2px auto}
+@media print{
+  html,body{width:80mm;max-width:80mm;margin:0;padding:0;background:#fff}
+  body{padding:3mm}
+}
+</style>
+</head>
+<body>
+<div class="pos-header">
+<div class="header-row">
+<div class="logo-col">
+<img src="${logoSrc}" alt="Hospital Logo" class="pos-logo" onerror="this.style.display='none';var fb=document.getElementById('logo-fallback');if(fb)fb.style.display='block';"/>
+<div id="logo-fallback" style="display:none;font-weight:bold;font-size:11px;text-align:center;line-height:1.2;">LIFECARE MULTISPECIALIST HOSPITAL</div>
+</div>
+<div class="header-divider"></div>
+<div class="hl-col">
+<span class="hl-l">Help Line :</span>
+<span class="hl-n">${settings?.helpline || '1234'}</span>
+</div>
+</div>
+<div class="addr">${settings?.address || 'BHAVNATH PARK-2, HARIDHAVA MAIN ROAD, RAJKOT'}</div>
+</div>
+<hr class="dbl"/>
+<div class="title">RECEIPT</div>
+<hr class="dash"/>
+<div class="meta"><span>Receipt#: <strong>${patient.code}</strong></span><span>${dt.toLocaleDateString()}</span></div>
+<div class="meta"><span>Time: ${dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span><span>Type: <strong>${patient.type}</strong></span></div>
+<hr class="dash"/>
+<div class="row"><span class="l">PATIENT</span><span class="v">${patient.name}</span></div>
+<div class="row"><span class="l">AGE / SEX</span><span class="v">${patient.age} Y / ${patient.gender}</span></div>
+<div class="row"><span class="l">DOCTOR</span><span class="v">${patient.doctor || "-"}</span></div>
+<div class="row"><span class="l">DEPT</span><span class="v">${patient.department}</span></div>
+<div class="row"><span class="l">CITY / PH</span><span class="v">${patient.city || "-"} (${patient.phone || "-"})</span></div>
+<hr class="dbl"/>
+<div class="ih"><span>ITEM</span><span>AMOUNT</span></div>
+<hr class="dash"/>
+<div class="ir">
+<div class="in">1. Reg &amp; OPD Consultation</div>
+<div class="id">Dept: ${patient.department}</div>
+<div class="ia"><span>Consultation Fee</span><span style="font-weight:bold">Rs.${patient.opdCharge.toFixed(2)}</span></div>
+</div>
+<hr class="dash"/>
+<div class="tr"><span>SUBTOTAL</span><span>Rs.${patient.opdCharge.toFixed(2)}</span></div>
+<div class="tr gt"><span>TOTAL</span><span>Rs.${patient.opdCharge.toFixed(2)}</span></div>
+<hr class="dbl"/>
+<div class="pr"><span>PAID (CASH)</span><span>Rs.${patient.opdCharge.toFixed(2)}</span></div>
+<div class="pr"><span>BALANCE DUE</span><span>Rs.0.00</span></div>
+<hr class="dash"/>
+<div class="aw">Amount: <strong>Rupees ${words} Only</strong></div>
+<hr class="dash"/>
+<div style="text-align:center;padding:4px 0"><span class="sb">✓ PAID</span></div>
+<hr class="dash"/>
+<div class="ft">
+<div class="ty">THANK YOU!</div>
+<div class="gw">Get Well Soon 🙏</div>
+<div>This is a computer generated receipt</div>
+<div>No signature required</div>
+</div>
+<div class="stars">********************************</div>
+</body>
+</html>`;
 
-          /* ── Header / Logo ── */
-          .pos-header {
-            text-align: center;
-            padding-bottom: 4px;
-            margin-bottom: 2px;
-          }
-          .logo-helpline-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            margin-bottom: 4px;
-          }
-          .pos-logo {
-            max-height: 45px;
-            max-width: 140px;
-            object-fit: contain;
-          }
-          .helpline-badge {
-            border: 1.5px solid #000;
-            border-radius: 50%;
-            width: 58px;
-            height: 58px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-          }
-          .helpline-badge .hl-label {
-            font-size: 6px;
-            font-weight: bold;
-            letter-spacing: 0.3px;
-          }
-          .helpline-badge .hl-num {
-            font-size: 7.5px;
-            font-weight: bold;
-          }
-          .pos-hospital-name {
-            font-size: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 1px;
-          }
-          .pos-address {
-            font-size: 8px;
-            color: #333;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-          }
+  // ── 4. Print via hidden iframe ──
+  // Remove old iframe if any (clean state each time)
+  const oldFrame = document.getElementById("receipt-print-frame");
+  if (oldFrame) oldFrame.remove();
 
-          /* ── Separators ── */
-          .dash-line {
-            border: none;
-            border-top: 1px dashed #000;
-            margin: 4px 0;
-          }
-          .double-line {
-            border: none;
-            border-top: 2px double #000;
-            margin: 4px 0;
-          }
-          .star-line {
-            text-align: center;
-            font-size: 9px;
-            letter-spacing: 2px;
-            margin: 3px 0;
-          }
+  const iframe = document.createElement("iframe");
+  iframe.id = "receipt-print-frame";
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:none;opacity:0;pointer-events:none;";
+  document.body.appendChild(iframe);
 
-          /* ── Title ── */
-          .pos-title {
-            text-align: center;
-            font-size: 12px;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            padding: 3px 0;
-          }
+  const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!iframeDoc || !iframe.contentWindow) return;
 
-          /* ── Receipt No / Date row ── */
-          .receipt-meta {
-            display: flex;
-            justify-content: space-between;
-            font-size: 9px;
-            padding: 1px 0;
-          }
+  iframeDoc.open();
+  iframeDoc.write(html);
+  iframeDoc.close();
 
-          /* ── Detail rows ── */
-          .detail-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 1.5px 0;
-            font-size: 10px;
-          }
-          .detail-row .lbl {
-            color: #333;
-            flex-shrink: 0;
-          }
-          .detail-row .val {
-            font-weight: bold;
-            text-align: right;
-            word-break: break-word;
-            max-width: 55%;
-          }
+  // Wait for all images inside the iframe to finish loading before printing
+  await new Promise<void>((resolve) => {
+    const checkAndPrint = () => {
+      const imgs = iframeDoc.querySelectorAll("img");
+      const pending = Array.from(imgs).filter((img) => !img.complete);
+      if (pending.length === 0) {
+        resolve();
+        return;
+      }
+      let remaining = pending.length;
+      const done = () => { if (--remaining <= 0) resolve(); };
+      pending.forEach((img) => {
+        img.addEventListener("load", done, { once: true });
+        img.addEventListener("error", done, { once: true });
+      });
+    };
+    // Small delay to let the document parse
+    setTimeout(checkAndPrint, 50);
+  });
 
-          /* ── Items table ── */
-          .items-header {
-            display: flex;
-            justify-content: space-between;
-            font-weight: bold;
-            font-size: 9px;
-            padding: 2px 0;
-            text-transform: uppercase;
-          }
-          .item-row {
-            padding: 3px 0;
-            font-size: 10px;
-          }
-          .item-name {
-            font-weight: bold;
-          }
-          .item-desc {
-            font-size: 8px;
-            color: #555;
-            padding-left: 8px;
-          }
-          .item-amount-row {
-            display: flex;
-            justify-content: space-between;
-            padding-left: 8px;
-            font-size: 10px;
-          }
-
-          /* ── Totals ── */
-          .total-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 11px;
-            font-weight: bold;
-            padding: 2px 0;
-          }
-          .grand-total {
-            font-size: 13px;
-            font-weight: bold;
-          }
-          .paid-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 11px;
-            font-weight: bold;
-            padding: 1px 0;
-          }
-
-          /* ── Words ── */
-          .amount-words {
-            font-size: 8px;
-            font-style: italic;
-            text-align: center;
-            padding: 3px 0;
-            color: #333;
-          }
-          .amount-words strong {
-            font-style: normal;
-            color: #000;
-          }
-
-          /* ── Footer ── */
-          .pos-footer {
-            text-align: center;
-            font-size: 8px;
-            color: #555;
-            padding-top: 4px;
-          }
-          .pos-footer .thank-you {
-            font-size: 11px;
-            font-weight: bold;
-            color: #000;
-            margin-bottom: 2px;
-          }
-          .pos-footer .get-well {
-            font-size: 9px;
-            margin-bottom: 3px;
-          }
-
-          .status-badge {
-            display: inline-block;
-            border: 1.5px solid #000;
-            padding: 1px 10px;
-            font-size: 10px;
-            font-weight: bold;
-            letter-spacing: 2px;
-            margin: 2px auto;
-          }
-        </style>
-      </head>
-      <body>
-        <!-- Header with Logo -->
-        <div class="pos-header">
-          <div class="logo-helpline-row">
-            <img src="${logoSrc}" alt="Logo" class="pos-logo" />
-            <div class="helpline-badge">
-              <span class="hl-label">HELPLINE</span>
-              <span class="hl-num">${settings?.helpline || '7016124362'}</span>
-            </div>
-          </div>
-          <div class="pos-address">${settings?.address || 'BHAVNATH PARK-2, HARIDHAVA MAIN ROAD, RAJKOT'}</div>
-        </div>
-
-        <hr class="double-line" />
-
-        <!-- Title -->
-        <div class="pos-title">RECEIPT</div>
-
-        <hr class="dash-line" />
-
-        <!-- Receipt Meta -->
-        <div class="receipt-meta">
-          <span>Receipt#: <strong>${patient.code}</strong></span>
-          <span>${dt.toLocaleDateString()}</span>
-        </div>
-        <div class="receipt-meta">
-          <span>Time: ${dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-          <span>Type: <strong>${patient.type}</strong></span>
-        </div>
-
-        <hr class="dash-line" />
-
-        <!-- Patient Details -->
-        <div class="detail-row">
-          <span class="lbl">PATIENT</span>
-          <span class="val">${patient.name}</span>
-        </div>
-        <div class="detail-row">
-          <span class="lbl">AGE / SEX</span>
-          <span class="val">${patient.age} Y / ${patient.gender}</span>
-        </div>
-        <div class="detail-row">
-          <span class="lbl">DOCTOR</span>
-          <span class="val">${patient.doctor || "-"}</span>
-        </div>
-        <div class="detail-row">
-          <span class="lbl">DEPT</span>
-          <span class="val">${patient.department}</span>
-        </div>
-        <div class="detail-row">
-          <span class="lbl">CITY / PH</span>
-          <span class="val">${patient.city || "-"} (${patient.phone || "-"})</span>
-        </div>
-
-        <hr class="double-line" />
-
-        <!-- Items Header -->
-        <div class="items-header">
-          <span>ITEM</span>
-          <span>AMOUNT</span>
-        </div>
-        <hr class="dash-line" />
-
-        <!-- Item -->
-        <div class="item-row">
-          <div class="item-name">1. Reg & OPD Consultation</div>
-          <div class="item-desc">Dept: ${patient.department}</div>
-          <div class="item-amount-row">
-            <span>Consultation Fee</span>
-            <span style="font-weight:bold;">Rs.${patient.opdCharge.toFixed(2)}</span>
-          </div>
-        </div>
-
-        <hr class="dash-line" />
-
-        <!-- Totals -->
-        <div class="total-row">
-          <span>SUBTOTAL</span>
-          <span>Rs.${patient.opdCharge.toFixed(2)}</span>
-        </div>
-        <div class="total-row grand-total">
-          <span>TOTAL</span>
-          <span>Rs.${patient.opdCharge.toFixed(2)}</span>
-        </div>
-
-        <hr class="double-line" />
-
-        <div class="paid-row">
-          <span>PAID (CASH)</span>
-          <span>Rs.${patient.opdCharge.toFixed(2)}</span>
-        </div>
-        <div class="paid-row">
-          <span>BALANCE DUE</span>
-          <span>Rs.0.00</span>
-        </div>
-
-        <hr class="dash-line" />
-
-        <!-- Amount in words -->
-        <div class="amount-words">
-          Amount: <strong>Rupees ${words} Only</strong>
-        </div>
-
-        <hr class="dash-line" />
-
-        <!-- Status -->
-        <div style="text-align:center; padding: 4px 0;">
-          <span class="status-badge">✓ PAID</span>
-        </div>
-
-        <hr class="dash-line" />
-
-        <!-- Footer -->
-        <div class="pos-footer">
-          <div class="thank-you">THANK YOU!</div>
-          <div class="get-well">Get Well Soon 🙏</div>
-          <div>This is a computer generated receipt</div>
-          <div>No signature required</div>
-        </div>
-
-        <div class="star-line">********************************</div>
-
-        <script>
-          setTimeout(function() {
-            window.print();
-          }, 300);
-        </script>
-      </body>
-    </html>
-  `;
-  printWindow.document.open();
-  printWindow.document.write(content);
-  printWindow.document.close();
+  // Trigger print
+  setTimeout(() => {
+    iframe.contentWindow?.print();
+  }, 100);
 };
 
-export const handlePrintMlc = (patient: Patient, settings: any) => {
-  let printIframe = document.getElementById("print-iframe") as HTMLIFrameElement;
-  if (!printIframe) {
-    printIframe = document.createElement("iframe");
-    printIframe.id = "print-iframe";
-    printIframe.style.position = "absolute";
-    printIframe.style.width = "0";
-    printIframe.style.height = "0";
-    printIframe.style.border = "none";
-    document.body.appendChild(printIframe);
+export const handlePrintMlc = async (patient: Patient, settings: any) => {
+  const rawLogo = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg'
+    ? settings.logoUrl
+    : '/lifecare-logo.jpg';
+  const absoluteLogoUrl = rawLogo.startsWith('http') || rawLogo.startsWith('data:')
+    ? rawLogo
+    : `${window.location.origin}${rawLogo.startsWith('/') ? '' : '/'}${rawLogo}`;
+
+  let logoSrc = absoluteLogoUrl;
+  try {
+    const resp = await fetch(absoluteLogoUrl, {
+      mode: 'cors',
+      cache: 'force-cache',
+      headers: { 'ngrok-skip-browser-warning': 'true' },
+    });
+    if (resp.ok) {
+      const blob = await resp.blob();
+      logoSrc = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+  } catch {
+    // keep absoluteLogoUrl fallback
   }
+
+  const oldFrame = document.getElementById("mlc-print-iframe");
+  if (oldFrame) oldFrame.remove();
+
+  const printIframe = document.createElement("iframe");
+  printIframe.id = "mlc-print-iframe";
+  printIframe.style.position = "fixed";
+  printIframe.style.top = "-9999px";
+  printIframe.style.left = "-9999px";
+  printIframe.style.width = "0";
+  printIframe.style.height = "0";
+  printIframe.style.border = "none";
+  document.body.appendChild(printIframe);
+
   const printWindow = printIframe.contentWindow;
   if (!printWindow) return;
 
@@ -1170,40 +1076,89 @@ export const handlePrintMlc = (patient: Patient, settings: any) => {
         <title>M.L.C. Form - ${patient.code}</title>
         <style>
           @page { margin: 0; size: A4; }
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 0; margin: 0; color: #111; line-height: 1.6; font-size: 13px; font-weight: bold; }
-          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          html, body { 
+            height: 100%;
+            margin: 0; 
+            padding: 0; 
+            background: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            color: #111; 
+            line-height: 1.35; 
+            font-size: 12px; 
+            font-weight: 600; 
+          }
           
-          .page-padding { padding: 0 40px 40px 40px; }
+          .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            -webkit-transform: translate(-50%, -50%);
+            opacity: 0.13;
+            z-index: 0;
+            pointer-events: none;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          .watermark img { 
+            width: 88%; 
+            max-width: 780px; 
+            object-fit: contain; 
+            transform: rotate(-45deg); 
+            -webkit-transform: rotate(-45deg); 
+          }
           
+          .page-container {
+            box-sizing: border-box;
+            width: 100%;
+            max-width: 210mm;
+            height: 295mm;
+            min-height: 295mm;
+            max-height: 295mm;
+            margin: 0 auto;
+            padding: 14px 28px 18px 28px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            z-index: 1;
+            background: transparent;
+            overflow: hidden;
+          }
+
           .top-section { 
             background-color: #4b4b4b !important; 
-            margin: 20px 20px 30px 20px;
-            border-radius: 40px;
+            margin: 0 0 10px 0;
+            border-radius: 30px;
             display: flex; 
             align-items: center; 
             justify-content: space-between; 
-            height: 120px;
+            height: 86px;
             position: relative;
+            flex-shrink: 0;
           }
           .logo-container { 
             background-color: white !important;
             height: 100%;
-            width: calc(100% - 180px);
-            border-radius: 40px 0 0 40px;
+            width: calc(100% - 130px);
+            border-radius: 30px 0 0 30px;
             display: flex;
             align-items: center;
             justify-content: flex-start;
             padding: 0;
             box-sizing: border-box;
           }
-          .logo-container img { width: 100%; height: 100%; border-radius: 40px 0 0 40px; object-fit: fill; }
+          .logo-container img { width: 100%; height: 100%; border-radius: 30px 0 0 30px; object-fit: fill; }
           .helpline-circle {
             background-color: white !important;
-            width: 150px;
-            height: 150px;
+            width: 104px;
+            height: 104px;
             border-radius: 50%;
             position: absolute;
-            right: 20px;
+            right: 14px;
             top: 50%;
             transform: translateY(-50%);
             display: flex;
@@ -1214,164 +1169,285 @@ export const handlePrintMlc = (patient: Patient, settings: any) => {
             box-shadow: 0 4px 10px rgba(0,0,0,0.15);
           }
           .helpline-circle span { color: #e53e3e; }
-          .helpline-title { font-size: 14px; margin-bottom: 5px; }
-          .helpline-number { font-size: 18px; font-weight: bold; }
+          .helpline-title { font-size: 10px; margin-bottom: 2px; }
+          .helpline-number { font-size: 13.5px; font-weight: bold; }
           
-          .title-area { display: flex; justify-content: space-between; border-bottom: 1px solid #555; padding-bottom: 10px; margin-bottom: 20px; }
-          .form-title { color: #ff6b6b; text-decoration: underline; font-size: 16px; text-transform: uppercase; }
-          .date-time { text-decoration: underline; color: #88afc5; }
+          .main-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 0;
+          }
+
+          .title-area { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: baseline; 
+            border-bottom: 1.5px solid #444; 
+            padding-bottom: 4px; 
+            margin-bottom: 6px; 
+          }
+          .form-title { 
+            color: #ff6b6b; 
+            text-decoration: underline; 
+            font-size: 13.5px; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px;
+          }
+          .date-time { 
+            text-decoration: underline; 
+            color: #5588a3; 
+            font-size: 12px; 
+            font-weight: 700;
+          }
           
-          .form-row { margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
-          .field-label { text-transform: uppercase; white-space: nowrap; color: #111; }
-          .field-value { flex: 1; border-bottom: 1px dotted #333; color: #444; padding: 0 5px; min-width: 50px; }
+          .form-row { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 8px; 
+            align-items: baseline; 
+            margin-bottom: 2px;
+          }
+          .field-label { 
+            text-transform: uppercase; 
+            white-space: nowrap; 
+            color: #111; 
+            font-size: 11.5px;
+            font-weight: 800;
+            letter-spacing: 0.2px;
+          }
+          .field-value { 
+            flex: 1; 
+            border-bottom: 1.5px dotted #333; 
+            color: #222; 
+            padding: 1px 4px; 
+            min-width: 40px; 
+            font-size: 12.5px;
+            font-weight: 700;
+          }
           
-          .full-line { width: 100%; border-bottom: 1px dotted #333; margin-top: 10px; height: 20px; }
+          .block { 
+            margin-bottom: 2px; 
+          }
+          .block-value { 
+            display: block; 
+            border-bottom: 1.5px dotted #333; 
+            min-height: 32px; 
+            padding: 2px 4px; 
+            white-space: pre-wrap; 
+            color: #222; 
+            font-size: 12.5px;
+            font-weight: 700;
+            line-height: 1.45;
+          }
+
+          .sign-section {
+            margin-top: 8px;
+            padding-top: 24px;
+            flex-shrink: 0;
+          }
+          .sign-row { 
+            display: flex; 
+            justify-content: space-between; 
+            gap: 40px; 
+          }
+          .sign-cell { 
+            flex: 1; 
+            border-top: 1.5px solid #000; 
+            padding-top: 5px; 
+            text-transform: uppercase; 
+            font-size: 11px; 
+            font-weight: 800;
+            text-align: center; 
+            letter-spacing: 0.5px;
+          }
+
+          @media print {
+            html, body {
+              width: 210mm;
+              height: 297mm;
+              margin: 0;
+              padding: 0;
+              overflow: hidden;
+            }
+            .page-container {
+              width: 210mm;
+              height: 295mm;
+              min-height: 295mm;
+              max-height: 295mm;
+              page-break-after: avoid;
+              page-break-inside: avoid;
+              overflow: hidden;
+            }
+          }
         </style>
       </head>
       <body>
-        <div class="top-section">
-          <div class="logo-container">
-            ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ''}
-          </div>
-          <div class="helpline-circle">
-            <span class="helpline-title">Help Line :</span>
-            <span class="helpline-number">${settings?.helpline || 'N/A'}</span>
-          </div>
+        <div class="watermark">
+          <img src="${logoSrc}" alt="Watermark" onerror="this.src='/lifecare-logo.jpg'" />
         </div>
-
-        <div class="page-padding">
-          <div class="title-area">
-            <div class="form-title">Registration and M.L.C. Form</div>
-            <div class="date-time">DATE / TIME:- ${patient.mlcDateOfMatter || ''} ${patient.mlcTimeOfMatter || ''}</div>
+        <div class="page-container">
+          <div class="top-section">
+            <div class="logo-container">
+              <img src="${logoSrc}" alt="Hospital Logo" onerror="this.src='/lifecare-logo.jpg'" />
+            </div>
+            <div class="helpline-circle">
+              <span class="helpline-title">Help Line :</span>
+              <span class="helpline-number">${settings?.helpline || '7016124362'}</span>
+            </div>
           </div>
 
-        <div class="form-row">
-          <span class="field-label">Patient Full Name -</span>
-          <span class="field-value">${patient.name}</span>
-        </div>
+          <div class="main-body">
+            <div class="title-area">
+              <div class="form-title">Registration and M.L.C. Form</div>
+              <div class="date-time">DATE / TIME:- ${patient.mlcDateOfMatter || ''} ${patient.mlcTimeOfMatter || ''}</div>
+            </div>
 
-        <div class="form-row" style="display: flex;">
-          <span class="field-label">Age / Gender -</span>
-          <span class="field-value" style="flex: 2;">${patient.age} / ${patient.gender}</span>
-          <span class="field-label">Marital Status -</span>
-          <span class="field-value" style="flex: 2;">${patient.maritalStatus || '-'}</span>
-          <span class="field-label">Child -</span>
-          <span class="field-value" style="flex: 1;">${patient.child || '-'}</span>
-        </div>
+            <div class="form-row">
+              <span class="field-label">Patient Full Name -</span>
+              <span class="field-value">${patient.name}</span>
+            </div>
 
-        <div class="form-row" style="display: flex;">
-          <span class="field-label">Occupation -</span>
-          <span class="field-value" style="flex: 2;">${patient.occupation || '-'}</span>
-          <span class="field-label">Religion -</span>
-          <span class="field-value" style="flex: 2;">${patient.religion || '-'}</span>
-          <span class="field-label">Cast -</span>
-          <span class="field-value" style="flex: 1;">${patient.caste || '-'}</span>
-        </div>
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">Age / Gender -</span>
+              <span class="field-value" style="flex: 2;">${patient.age} / ${patient.gender}</span>
+              <span class="field-label">Marital Status -</span>
+              <span class="field-value" style="flex: 2;">${patient.maritalStatus || '-'}</span>
+              <span class="field-label">Child -</span>
+              <span class="field-value" style="flex: 1;">${patient.child || '-'}</span>
+            </div>
 
-        <div class="form-row" style="display: flex;">
-          <span class="field-label">City -</span>
-          <span class="field-value" style="flex: 2;">${patient.city || '-'}</span>
-          <span class="field-label">State -</span>
-          <span class="field-value" style="flex: 2;">${patient.state || '-'}</span>
-          <span class="field-label">Pin No., -</span>
-          <span class="field-value" style="flex: 1;">${patient.pincode || '-'}</span>
-        </div>
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">Occupation -</span>
+              <span class="field-value" style="flex: 2;">${patient.occupation || '-'}</span>
+              <span class="field-label">Religion -</span>
+              <span class="field-value" style="flex: 2;">${patient.religion || '-'}</span>
+              <span class="field-label">Cast -</span>
+              <span class="field-value" style="flex: 1;">${patient.caste || '-'}</span>
+            </div>
 
-        <div class="form-row">
-          <span class="field-label">Relative Currently With Name -</span>
-          <span class="field-value">${patient.relativeName || '-'}</span>
-        </div>
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">City -</span>
+              <span class="field-value" style="flex: 2;">${patient.city || '-'}</span>
+              <span class="field-label">State -</span>
+              <span class="field-value" style="flex: 2;">${patient.state || '-'}</span>
+              <span class="field-label">Pin No., -</span>
+              <span class="field-value" style="flex: 1;">${patient.pincode || '-'}</span>
+            </div>
 
-        <div class="form-row" style="display: flex;">
-          <span class="field-label">Relation -</span>
-          <span class="field-value" style="flex: 1;">${patient.relation || '-'}</span>
-          <span class="field-label">Relative Mo No, -</span>
-          <span class="field-value" style="flex: 1;">${patient.relativePhone || '-'}</span>
-        </div>
+            <div class="form-row">
+              <span class="field-label">Relative Currently With Name -</span>
+              <span class="field-value">${patient.relativeName || '-'}</span>
+            </div>
 
-        <div class="form-row">
-          <span class="field-label">Current Address -</span>
-          <span class="field-value">${patient.addressLine || '-'}</span>
-        </div>
-        <div class="full-line"></div>
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">Relation -</span>
+              <span class="field-value" style="flex: 1;">${patient.relation || '-'}</span>
+              <span class="field-label">Relative Mo No, -</span>
+              <span class="field-value" style="flex: 1;">${patient.relativePhone || '-'}</span>
+            </div>
 
-        <div class="form-row">
-          <span class="field-label">Permanent Address -</span>
-          <span class="field-value">${patient.addressLine || '-'}</span>
-        </div>
+            <div class="block">
+              <span class="field-label">Current Address -</span>
+              <span class="block-value">${patient.addressLine || '-'}</span>
+            </div>
 
-        <div class="form-row" style="display: flex;">
-          <span class="field-label">Mo.,No., -</span>
-          <span class="field-value" style="flex: 2;">${patient.phone || '-'}</span>
-          <span class="field-label">Mediclaim –</span>
-          <span class="field-value" style="flex: 1; border: none;">${patient.mediclaim ? 'YES' : 'NO'}</span>
-        </div>
+            <div class="block">
+              <span class="field-label">Permanent Address -</span>
+              <span class="block-value">${patient.mlcPermanentAddress || patient.addressLine || '-'}</span>
+            </div>
 
-        <div class="form-row" style="display: flex;">
-          <span class="field-label">Dr. Incharge -</span>
-          <span class="field-value" style="flex: 1;">${patient.doctor || '-'}</span>
-          <span class="field-label">Medical Officer -</span>
-          <span class="field-value" style="flex: 1;">${patient.doctor || '-'}</span>
-        </div>
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">Mo.,No., -</span>
+              <span class="field-value" style="flex: 2;">${patient.phone || '-'}</span>
+              <span class="field-label">Mediclaim –</span>
+              <span class="field-value" style="flex: 1; border: none;">${patient.mediclaim ? 'YES' : 'NO'}</span>
+            </div>
 
-        <div class="form-row">
-          <span class="field-label">Detail of Matter -</span>
-          <span class="field-value">${patient.mlcDetailOfMatter || '-'}</span>
-        </div>
-        <div class="full-line"></div>
-        <div class="full-line"></div>
-        <div class="full-line"></div>
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">Dr. Incharge -</span>
+              <span class="field-value" style="flex: 1;">${patient.mlcDrIncharge || patient.doctor || '-'}</span>
+              <span class="field-label">Medical Officer -</span>
+              <span class="field-value" style="flex: 1;">${patient.mlcMedicalOfficer || patient.doctor || '-'}</span>
+            </div>
 
-        <div class="form-row" style="display: flex;">
-          <span class="field-label">Date of Matter -</span>
-          <span class="field-value" style="flex: 1;">${patient.mlcDateOfMatter || '-'}</span>
-          <span class="field-label">Time of Matter -</span>
-          <span class="field-value" style="flex: 1;">${patient.mlcTimeOfMatter || '-'}</span>
-        </div>
+            <div class="block">
+              <span class="field-label">Detail of Matter -</span>
+              <span class="block-value">${patient.mlcDetailOfMatter || '-'}</span>
+            </div>
 
-        <div class="form-row" style="display: flex;">
-          <span class="field-label">Cause of Matter -</span>
-          <span class="field-value" style="flex: 1;">${patient.mlcCauseOfMatter || '-'}</span>
-          <span class="field-label">Place of Matter -</span>
-          <span class="field-value" style="flex: 1;">${patient.mlcPlaceOfMatter || '-'}</span>
-        </div>
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">Date of Matter -</span>
+              <span class="field-value" style="flex: 1;">${patient.mlcDateOfMatter || '-'}</span>
+              <span class="field-label">Time of Matter -</span>
+              <span class="field-value" style="flex: 1;">${patient.mlcTimeOfMatter || '-'}</span>
+            </div>
 
-        <div class="form-row">
-          <span class="field-label">Any of Hospitalised Past H/O -</span>
-          <span class="field-value">${patient.mlcAnyOfHospitalisedPastHO || '-'}</span>
-        </div>
-        <div class="full-line"></div>
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">Cause of Matter -</span>
+              <span class="field-value" style="flex: 1;">${patient.mlcCauseOfMatter || '-'}</span>
+              <span class="field-label">Place of Matter -</span>
+              <span class="field-value" style="flex: 1;">${patient.mlcPlaceOfMatter || '-'}</span>
+            </div>
 
-        <div class="form-row">
-          <span class="field-label">Current Condition -</span>
-          <span class="field-value">${patient.mlcCurrentCondition || '-'}</span>
-        </div>
-        <div class="full-line"></div>
+            <div class="block">
+              <span class="field-label">Any of Hospitalised Past H/O -</span>
+              <span class="block-value">${patient.mlcAnyOfHospitalisedPastHO || '-'}</span>
+            </div>
 
-        <br/><br/>
-        <div class="form-row" style="display: flex;">
-          <span class="field-label">Name of Filler -</span>
-          <span class="field-value" style="flex: 2;">${patient.mlcNameOfFiller || '-'}</span>
-          <span class="field-label">Mo No -</span>
-          <span class="field-value" style="flex: 1;">${patient.mlcFillerMoNo || '-'}</span>
-        </div>
+            <div class="block">
+              <span class="field-label">Current Condition -</span>
+              <span class="block-value">${patient.mlcCurrentCondition || '-'}</span>
+            </div>
 
-        <br/>
-        <div class="form-row">
-          <span class="field-label">Signature -</span>
-          <span class="field-value" style="max-width: 250px;"></span>
-        </div>
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">Reported Police Station -</span>
+              <span class="field-value" style="flex: 2;">${patient.mlcReportedPoliceStation || '-'}</span>
+              <span class="field-label">Name of PI -</span>
+              <span class="field-value" style="flex: 2;">${patient.mlcPoliceInspectorName || '-'}</span>
+            </div>
 
-        <div class="form-row">
-          <span class="field-label">Add -</span>
-          <span class="field-value"></span>
-        </div>
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">FIR / CC No. -</span>
+              <span class="field-value" style="flex: 1;">${patient.mlcFirOrCcNumber || '-'}</span>
+              <span class="field-label">Connected Police Station Address -</span>
+              <span class="field-value" style="flex: 2;">${patient.mlcPoliceStationAddress || '-'}</span>
+            </div>
+
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">Name of Filler -</span>
+              <span class="field-value" style="flex: 2;">${patient.mlcNameOfFiller || '-'}</span>
+              <span class="field-label">Mo No -</span>
+              <span class="field-value" style="flex: 1;">${patient.mlcFillerMoNo || '-'}</span>
+            </div>
+          </div>
+
+          <div class="sign-section">
+            <div class="sign-row">
+              <div class="sign-cell">Signature</div>
+              <div class="sign-cell">Add / Stamp</div>
+            </div>
+          </div>
         </div>
 
         <script>
-          setTimeout(function() {
+          var printed = false;
+          function doPrint() {
+            if (printed) return;
+            printed = true;
+            window.focus();
             window.print();
-          }, 250);
+          }
+          if (document.readyState === 'complete') {
+            setTimeout(doPrint, 200);
+          } else {
+            window.addEventListener('load', function() {
+              setTimeout(doPrint, 200);
+            });
+            setTimeout(doPrint, 800);
+          }
         </script>
       </body>
     </html>
@@ -1397,6 +1473,8 @@ export function ConsentFormDialog({ patient, settings, onClose, isReprint = fals
     }
     const printWindow = printIframe.contentWindow;
     if (!printWindow) return;
+    const logoUrl = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg' ? settings.logoUrl : '/lifecare-logo.jpg';
+    const helplineNumber = settings?.helpline || '7016124362';
     const content = `
       <html>
         <head>
@@ -1452,18 +1530,28 @@ export function ConsentFormDialog({ patient, settings, onClose, isReprint = fals
             
             .watermark {
               position: fixed;
-              top: 30%;
-              left: 10%;
-              width: 80%;
-              height: 40%;
-              background-image: url('${settings?.logoUrl && settings.logoUrl !== '/logo.png' ? settings.logoUrl : '/lifecare-logo.jpg'}');
-              background-size: contain;
-              background-position: center;
-              background-repeat: no-repeat;
-              opacity: 0.1;
-              transform: rotate(-30deg);
-              z-index: -1;
+              top: 50%;
+              left: 50%;
+              transform: translate(-50%, -50%);
+              -webkit-transform: translate(-50%, -50%);
+              opacity: 0.13;
+              z-index: 0;
               pointer-events: none;
+              width: 100%;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+            }
+            .watermark img {
+              width: 85%;
+              max-width: 720px;
+              object-fit: contain;
+              transform: rotate(-35deg);
+              -webkit-transform: rotate(-35deg);
+            }
+            .top-section, .page-padding {
+              position: relative;
+              z-index: 1;
             }
 
             .title { text-align: center; font-size: 16px; font-weight: bold; color: #e53e3e; text-decoration: underline; margin-bottom: 30px; text-transform: uppercase; }
@@ -1493,14 +1581,16 @@ export function ConsentFormDialog({ patient, settings, onClose, isReprint = fals
           </style>
         </head>
         <body>
-          <div class="watermark"></div>
+          <div class="watermark">
+            <img src="${logoUrl}" alt="Watermark" onerror="this.src='/lifecare-logo.jpg'" />
+          </div>
           <div class="top-section">
             <div class="logo-container">
-              ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ''}
+              <img src="${logoUrl}" alt="Hospital Logo" onerror="this.src='/lifecare-logo.jpg'" />
             </div>
             <div class="helpline-circle">
               <span class="helpline-title">Help Line :</span>
-              <span class="helpline-number">${settings?.helpline || 'N/A'}</span>
+              <span class="helpline-number">${helplineNumber}</span>
             </div>
           </div>
           
@@ -1516,16 +1606,7 @@ export function ConsentFormDialog({ patient, settings, onClose, isReprint = fals
           <div class="info-row">(1) MO NO ,:- <span>${patient.phone}</span> (2) MO NO.:- <span></span></div>
           <div class="info-row">CURRENTLY WITH RELATIVE NAME :- <span>${patient.relativeName || ''}</span></div>
           <div class="info-row">RELATION :- <span>${patient.relation || ''}</span> MO NO OF RELATIVE :- <span>${patient.relativePhone || ''}</span></div>
-          ${(() => {
-            const wards = patient.ward ? patient.ward.split(" & ") : [];
-            const wardNums = patient.wardNumber ? patient.wardNumber.split(" & ") : [];
-            
-            if (wards.length === 0) return '<div class="info-row">WARD :- <span></span> WARD NO :- <span></span></div>';
-            
-            return wards.map((w, i) => 
-              `<div class="info-row">WARD (${i+1}) :- <span>${w}</span> WARD NO (${i+1}) :- <span>${wardNums[i] || ''}</span></div>`
-            ).join("");
-          })()}
+          <div class="info-row">WARD :- <span>${patient.ward || ''}</span> WARD NO :- <span>${patient.wardNumber || ''}</span></div>
           <div class="info-row">PATIENT ADDRESS :- <span>${patient.addressLine || ''}</span></div>
           <div class="info-row">RELATIVE ADDRESS :- <span>${patient.relativeAddress || ''}</span></div>
           
@@ -1550,13 +1631,16 @@ export function ConsentFormDialog({ patient, settings, onClose, isReprint = fals
           
           <div class="page-break"></div>
           
+          <div class="watermark">
+            <img src="${logoUrl}" alt="Watermark" onerror="this.src='/lifecare-logo.jpg'" />
+          </div>
           <div class="top-section">
             <div class="logo-container">
-              ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Hospital Logo" onerror="this.style.display='none'" />` : ''}
+              <img src="${logoUrl}" alt="Hospital Logo" onerror="this.src='/lifecare-logo.jpg'" />
             </div>
             <div class="helpline-circle">
               <span class="helpline-title">Help Line :</span>
-              <span class="helpline-number">${settings?.helpline || 'N/A'}</span>
+              <span class="helpline-number">${helplineNumber}</span>
             </div>
           </div>
           
@@ -1607,9 +1691,16 @@ export function ConsentFormDialog({ patient, settings, onClose, isReprint = fals
           </div>
           
           <script>
-            setTimeout(function() {
+            var printed = false;
+            function doPrint() {
+              if (printed) return;
+              printed = true;
               window.print();
-            }, 250);
+            }
+            window.onload = function() {
+              setTimeout(doPrint, 200);
+            };
+            setTimeout(doPrint, 800);
           </script>
         </body>
       </html>

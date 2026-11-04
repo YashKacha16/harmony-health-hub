@@ -371,23 +371,24 @@ function DepositDialog({ patient, onClose, settings }: { patient: Patient; onClo
 
 // Print Template exactly matching the image provided
 const DepositPrintTemplate = ({ data, patient, settings }: any) => {
+    const logoUrl = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg' ? settings.logoUrl : '/lifecare-logo.jpg';
     return (
-        <div className="px-6 py-3 w-full max-w-[800px] mx-auto text-black font-sans" style={{ fontSize: "11px" }}>
+        <div className="px-6 py-3 w-full max-w-[800px] mx-auto text-black font-sans relative" style={{ fontSize: "11px" }}>
             {/* Watermark Logo */}
-            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.10] -z-10 pointer-events-none flex justify-center items-center w-full">
-                {settings?.logoUrl && <img src={settings.logoUrl} alt="Watermark" className="w-[80%] max-w-[600px] object-contain -rotate-12" />}
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none flex justify-center items-center w-full" style={{ opacity: 0.13, zIndex: 0 }}>
+                <img src={logoUrl} alt="Watermark" className="w-[80%] max-w-[600px] object-contain -rotate-12" onError={(e) => { e.currentTarget.src = '/lifecare-logo.jpg'; }} />
             </div>
 
             {/* Main Content Wrapper for z-index */}
-            <div className="relative">
+            <div className="relative" style={{ position: "relative", zIndex: 1, background: "transparent" }}>
                 {/* Header Section */}
             <div className="bg-[#4b4b4b] mx-3 mt-3 mb-4 rounded-[40px] flex items-center justify-between h-[100px] relative">
               <div className="bg-white h-full w-[calc(100%-180px)] rounded-l-[40px] flex items-center justify-start p-0 box-border">
-                {settings?.logoUrl && <img src={settings.logoUrl} alt="Hospital Logo" className="w-full h-full rounded-l-[40px] object-fill" />}
+                <img src={logoUrl} alt="Hospital Logo" className="w-full h-full rounded-l-[40px] object-fill" onError={(e) => { e.currentTarget.src = '/lifecare-logo.jpg'; }} />
               </div>
               <div className="bg-white w-[150px] h-[150px] rounded-full absolute right-5 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center text-center shadow-[0_4px_10px_rgba(0,0,0,0.15)] z-10">
                 <span className="text-sm mb-1 text-[#e53e3e]">Help Line :</span>
-                <span className="text-lg font-bold text-[#e53e3e]">{settings?.helpline || 'N/A'}</span>
+                <span className="text-lg font-bold text-[#e53e3e]">{settings?.helpline || '7016124362'}</span>
               </div>
             </div>
 
@@ -762,23 +763,24 @@ function IpdCaseBillDialog({ patient, onClose, settings }: { patient: Patient; o
 }
 
 const IpdCaseBillPrintTemplate = ({ data, patient, settings }: any) => {
+    const logoUrl = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg' ? settings.logoUrl : '/lifecare-logo.jpg';
     return (
-        <div className="px-6 py-3 w-full max-w-[800px] mx-auto text-black font-sans relative z-0" style={{ fontSize: "11px" }}>
+        <div className="px-6 py-3 w-full max-w-[800px] mx-auto text-black font-sans relative" style={{ fontSize: "11px" }}>
             {/* Watermark Logo */}
-            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.10] -z-10 pointer-events-none flex justify-center items-center w-full">
-                {settings?.logoUrl && <img src={settings.logoUrl} alt="Watermark" className="w-[80%] max-w-[600px] object-contain -rotate-12" />}
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none flex justify-center items-center w-full" style={{ opacity: 0.13, zIndex: 0 }}>
+                <img src={logoUrl} alt="Watermark" className="w-[80%] max-w-[600px] object-contain -rotate-12" onError={(e) => { e.currentTarget.src = '/lifecare-logo.jpg'; }} />
             </div>
 
             {/* Main Content Wrapper for z-index */}
-            <div className="relative">
+            <div className="relative" style={{ position: "relative", zIndex: 1, background: "transparent" }}>
                 {/* Header Section */}
             <div className="bg-[#4b4b4b] mx-5 mt-5 mb-8 rounded-[40px] flex items-center justify-between h-[120px] relative print:bg-[#4b4b4b] print:border print:border-black">
               <div className="bg-white h-full w-[calc(100%-180px)] rounded-l-[40px] flex items-center justify-start p-0 box-border border border-black print:border-black">
-                {settings?.logoUrl && <img src={settings.logoUrl} alt="Hospital Logo" className="w-full h-full rounded-l-[40px] object-fill" />}
+                <img src={logoUrl} alt="Hospital Logo" className="w-full h-full rounded-l-[40px] object-fill" onError={(e) => { e.currentTarget.src = '/lifecare-logo.jpg'; }} />
               </div>
               <div className="bg-white w-[150px] h-[150px] rounded-full absolute right-5 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center text-center shadow-[0_4px_10px_rgba(0,0,0,0.15)] z-10 border border-black print:border-black">
                 <span className="text-sm mb-1 text-[#e53e3e]">Help Line :</span>
-                <span className="text-lg font-bold text-[#e53e3e]">{settings?.helpline || 'N/A'}</span>
+                <span className="text-lg font-bold text-[#e53e3e]">{settings?.helpline || '7016124362'}</span>
               </div>
             </div>
 
@@ -1136,23 +1138,24 @@ function LabBillDialog({ patient, onClose, settings }: { patient: Patient; onClo
 }
 
 const LabBillPrintTemplate = ({ data, patient, settings }: any) => {
+    const logoUrl = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg' ? settings.logoUrl : '/lifecare-logo.jpg';
     return (
-        <div className="px-6 py-3 w-full max-w-[800px] mx-auto text-black font-sans relative z-0" style={{ fontSize: "11px" }}>
+        <div className="px-6 py-3 w-full max-w-[800px] mx-auto text-black font-sans relative" style={{ fontSize: "11px" }}>
             {/* Watermark Logo */}
-            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.10] -z-10 pointer-events-none flex justify-center items-center w-full">
-                {settings?.logoUrl && <img src={settings.logoUrl} alt="Watermark" className="w-[80%] max-w-[600px] object-contain -rotate-12" />}
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none flex justify-center items-center w-full" style={{ opacity: 0.13, zIndex: 0 }}>
+                <img src={logoUrl} alt="Watermark" className="w-[80%] max-w-[600px] object-contain -rotate-12" onError={(e) => { e.currentTarget.src = '/lifecare-logo.jpg'; }} />
             </div>
 
             {/* Main Content Wrapper for z-index */}
-            <div className="relative">
+            <div className="relative" style={{ position: "relative", zIndex: 1, background: "transparent" }}>
                 {/* Header Section */}
             <div className="bg-[#4b4b4b] mx-5 mt-5 mb-8 rounded-[40px] flex items-center justify-between h-[120px] relative print:bg-[#4b4b4b] print:border print:border-black">
               <div className="bg-white h-full w-[calc(100%-180px)] rounded-l-[40px] flex items-center justify-start p-0 box-border border border-black print:border-black">
-                {settings?.logoUrl && <img src={settings.logoUrl} alt="Hospital Logo" className="w-full h-full rounded-l-[40px] object-fill" />}
+                <img src={logoUrl} alt="Hospital Logo" className="w-full h-full rounded-l-[40px] object-fill" onError={(e) => { e.currentTarget.src = '/lifecare-logo.jpg'; }} />
               </div>
               <div className="bg-white w-[150px] h-[150px] rounded-full absolute right-5 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center text-center shadow-[0_4px_10px_rgba(0,0,0,0.15)] z-10 border border-black print:border-black">
                 <span className="text-sm mb-1 text-[#e53e3e]">Help Line :</span>
-                <span className="text-lg font-bold text-[#e53e3e]">{settings?.helpline || 'N/A'}</span>
+                <span className="text-lg font-bold text-[#e53e3e]">{settings?.helpline || '7016124362'}</span>
               </div>
             </div>
 
@@ -1556,23 +1559,24 @@ function FinalBillDialog({ patient, onClose, settings }: { patient: Patient; onC
 }
 
 const FinalBillPrintTemplate = ({ data, patient, settings }: any) => {
+    const logoUrl = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg' ? settings.logoUrl : '/lifecare-logo.jpg';
     return (
-        <div className="px-6 py-3 w-full max-w-[800px] mx-auto text-black font-sans relative z-0" style={{ fontSize: "11px" }}>
+        <div className="px-6 py-3 w-full max-w-[800px] mx-auto text-black font-sans relative" style={{ fontSize: "11px" }}>
             {/* Watermark Logo */}
-            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.10] -z-10 pointer-events-none flex justify-center items-center w-full">
-                {settings?.logoUrl && <img src={settings.logoUrl} alt="Watermark" className="w-[80%] max-w-[600px] object-contain -rotate-12" />}
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none flex justify-center items-center w-full" style={{ opacity: 0.13, zIndex: 0 }}>
+                <img src={logoUrl} alt="Watermark" className="w-[80%] max-w-[600px] object-contain -rotate-12" onError={(e) => { e.currentTarget.src = '/lifecare-logo.jpg'; }} />
             </div>
 
             {/* Main Content Wrapper for z-index */}
-            <div className="relative">
+            <div className="relative" style={{ position: "relative", zIndex: 1, background: "transparent" }}>
                 {/* Header Section */}
             <div className="bg-[#4b4b4b] mx-5 mt-5 mb-8 rounded-[40px] flex items-center justify-between h-[120px] relative print:bg-[#4b4b4b] print:border print:border-black">
               <div className="bg-white h-full w-[calc(100%-180px)] rounded-l-[40px] flex items-center justify-start p-0 box-border border border-black print:border-black">
-                {settings?.logoUrl && <img src={settings.logoUrl} alt="Hospital Logo" className="w-full h-full rounded-l-[40px] object-fill" />}
+                <img src={logoUrl} alt="Hospital Logo" className="w-full h-full rounded-l-[40px] object-fill" onError={(e) => { e.currentTarget.src = '/lifecare-logo.jpg'; }} />
               </div>
               <div className="bg-white w-[150px] h-[150px] rounded-full absolute right-5 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center text-center shadow-[0_4px_10px_rgba(0,0,0,0.15)] z-10 border border-black print:border-black">
                 <span className="text-sm mb-1 text-[#e53e3e]">Help Line :</span>
-                <span className="text-lg font-bold text-[#e53e3e]">{settings?.helpline || 'N/A'}</span>
+                <span className="text-lg font-bold text-[#e53e3e]">{settings?.helpline || '7016124362'}</span>
               </div>
             </div>
 

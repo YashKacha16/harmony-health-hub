@@ -38,10 +38,6 @@ function mapPatient(p: PatientBackendDto): Patient {
     })) || [],
     ward: p.ward,
     wardNumber: p.wardNumber,
-    wardHistory: p.wardHistory?.map(wh => ({
-      ward: wh.ward,
-      wardNumber: wh.wardNumber
-    })) || [],
     relativeName: p.relativeName,
     relation: p.relation,
     relativePhone: p.relativePhone,
@@ -62,6 +58,11 @@ function mapPatient(p: PatientBackendDto): Patient {
     mlcCurrentCondition: p.mlcCurrentCondition,
     mlcNameOfFiller: p.mlcNameOfFiller,
     mlcFillerMoNo: p.mlcFillerMoNo,
+    mlcPermanentAddress: p.mlcPermanentAddress,
+    mlcReportedPoliceStation: p.mlcReportedPoliceStation,
+    mlcPoliceInspectorName: p.mlcPoliceInspectorName,
+    mlcPoliceStationAddress: p.mlcPoliceStationAddress,
+    mlcFirOrCcNumber: p.mlcFirOrCcNumber,
   };
 }
 
@@ -128,10 +129,6 @@ export const receptionService = {
         })),
         ward: data.ward,
         wardNumber: data.wardNumber,
-        wardHistory: data.wardHistory?.map(wh => ({
-          ward: wh.ward,
-          wardNumber: wh.wardNumber
-        })),
         relativeName: data.relativeName,
         relation: data.relation,
         relativePhone: data.relativePhone,
@@ -152,6 +149,11 @@ export const receptionService = {
         mlcCurrentCondition: data.mlcCurrentCondition,
         mlcNameOfFiller: data.mlcNameOfFiller,
         mlcFillerMoNo: data.mlcFillerMoNo,
+        mlcPermanentAddress: data.mlcPermanentAddress,
+        mlcReportedPoliceStation: data.mlcReportedPoliceStation,
+        mlcPoliceInspectorName: data.mlcPoliceInspectorName,
+        mlcPoliceStationAddress: data.mlcPoliceStationAddress,
+        mlcFirOrCcNumber: data.mlcFirOrCcNumber,
       };
       
       const newPatient = await apiService.patients.create(payload);
