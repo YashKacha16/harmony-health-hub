@@ -90,6 +90,20 @@ export interface Patient {
   mlcPoliceInspectorName?: string;
   mlcPoliceStationAddress?: string;
   mlcFirOrCcNumber?: string;
+
+  isEmergency?: boolean;
+  emergencyMedicalOfficer?: string;
+  emergencyCondition?: string;
+  emergencyPastHistory?: string;
+  emergencyBp?: string;
+  emergencyPulse?: string;
+  emergencySpo2?: string;
+  emergencyTemp?: string;
+  emergencyRr?: string;
+  emergencyInvestigations?: string;
+  emergencyDoctorsNote?: string;
+  emergencyStateInjection?: string;
+  emergencyNote?: string;
 }
 
 export interface PrescribedMedicine {

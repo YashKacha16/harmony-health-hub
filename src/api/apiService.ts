@@ -154,6 +154,19 @@ export interface PatientBackendDto {
   mlcPoliceInspectorName?: string;
   mlcPoliceStationAddress?: string;
   mlcFirOrCcNumber?: string;
+  isEmergency?: boolean;
+  emergencyMedicalOfficer?: string;
+  emergencyCondition?: string;
+  emergencyPastHistory?: string;
+  emergencyBp?: string;
+  emergencyPulse?: string;
+  emergencySpo2?: string;
+  emergencyTemp?: string;
+  emergencyRr?: string;
+  emergencyInvestigations?: string;
+  emergencyDoctorsNote?: string;
+  emergencyStateInjection?: string;
+  emergencyNote?: string;
 }
 
 export interface CreatePatientPayload {
@@ -206,6 +219,19 @@ export interface CreatePatientPayload {
   mlcPoliceInspectorName?: string;
   mlcPoliceStationAddress?: string;
   mlcFirOrCcNumber?: string;
+  isEmergency?: boolean;
+  emergencyMedicalOfficer?: string;
+  emergencyCondition?: string;
+  emergencyPastHistory?: string;
+  emergencyBp?: string;
+  emergencyPulse?: string;
+  emergencySpo2?: string;
+  emergencyTemp?: string;
+  emergencyRr?: string;
+  emergencyInvestigations?: string;
+  emergencyDoctorsNote?: string;
+  emergencyStateInjection?: string;
+  emergencyNote?: string;
 }
 
 export interface UpdatePatientPayload {

@@ -21,7 +21,7 @@ import { opdService } from "@/services/opdService";
 import { medicalService } from "@/services/medicalService";
 import { receptionService } from "@/services/receptionService";
 import { apiService } from "@/api/apiService";
-import { handlePrintMlc } from "./reception";
+import { handlePrintMlc, handlePrintEmergency } from "./reception";
 import type { Patient, PrescribedMedicine, Prescription } from "@/lib/store";
 
 export const Route = createFileRoute("/opd")({
@@ -605,6 +605,11 @@ function OPDPage() {
                       ) : (
                         <Button size="sm" onClick={() => openPrescribe(p)}>
                           <Stethoscope className="h-4 w-4 mr-1" /> Prescribe
+                        </Button>
+                      )}
+                      {p.isEmergency && (
+                        <Button size="sm" variant="outline" className="ml-2 border-rose-500 text-rose-600 hover:bg-rose-50" onClick={() => handlePrintEmergency(p, db.hospitalSettings)}>
+                          <Printer className="h-4 w-4 mr-2" /> Print Emergency
                         </Button>
                       )}
                       {p.isMlc && (

@@ -15,7 +15,7 @@ import { Trash2, Printer, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import type { Patient } from "@/lib/store";
-import { ConsentFormDialog, handlePrintMlc } from "./reception";
+import { ConsentFormDialog, handlePrintMlc, handlePrintEmergency } from "./reception";
 import { NursingChartDialog } from "@/components/NursingChartDialog";
 import { apiService } from "@/api/apiService";
 import { ChevronDown, ChevronRight, Edit } from "lucide-react";
@@ -177,6 +177,11 @@ function IpdPage() {
                         <Button variant="ghost" size="icon" onClick={() => setPrintPatient(p)} title="Print Consent Form">
                           <Printer className="h-4 w-4" />
                         </Button>
+                        {p.isEmergency && (
+                          <Button variant="ghost" size="icon" onClick={() => handlePrintEmergency(p, db.hospitalSettings)} title="Print Emergency Form" className="text-rose-500 hover:text-rose-700 hover:bg-rose-50">
+                            <Printer className="h-4 w-4" />
+                          </Button>
+                        )}
                         {p.isMlc && (
                           <Button variant="ghost" size="icon" onClick={() => handlePrintMlc(p, db.hospitalSettings)} title="Print MLC Form" className="text-orange-500 hover:text-orange-700 hover:bg-orange-50">
                             <Printer className="h-4 w-4" />

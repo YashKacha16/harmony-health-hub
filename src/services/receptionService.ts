@@ -63,6 +63,19 @@ function mapPatient(p: PatientBackendDto): Patient {
     mlcPoliceInspectorName: p.mlcPoliceInspectorName,
     mlcPoliceStationAddress: p.mlcPoliceStationAddress,
     mlcFirOrCcNumber: p.mlcFirOrCcNumber,
+    isEmergency: p.isEmergency,
+    emergencyMedicalOfficer: p.emergencyMedicalOfficer,
+    emergencyCondition: p.emergencyCondition,
+    emergencyPastHistory: p.emergencyPastHistory,
+    emergencyBp: p.emergencyBp,
+    emergencyPulse: p.emergencyPulse,
+    emergencySpo2: p.emergencySpo2,
+    emergencyTemp: p.emergencyTemp,
+    emergencyRr: p.emergencyRr,
+    emergencyInvestigations: p.emergencyInvestigations,
+    emergencyDoctorsNote: p.emergencyDoctorsNote,
+    emergencyStateInjection: p.emergencyStateInjection,
+    emergencyNote: p.emergencyNote,
   };
 }
 
@@ -154,6 +167,19 @@ export const receptionService = {
         mlcPoliceInspectorName: data.mlcPoliceInspectorName,
         mlcPoliceStationAddress: data.mlcPoliceStationAddress,
         mlcFirOrCcNumber: data.mlcFirOrCcNumber,
+        isEmergency: data.isEmergency ?? false,
+        emergencyMedicalOfficer: data.emergencyMedicalOfficer,
+        emergencyCondition: data.emergencyCondition,
+        emergencyPastHistory: data.emergencyPastHistory,
+        emergencyBp: data.emergencyBp,
+        emergencyPulse: data.emergencyPulse,
+        emergencySpo2: data.emergencySpo2,
+        emergencyTemp: data.emergencyTemp,
+        emergencyRr: data.emergencyRr,
+        emergencyInvestigations: data.emergencyInvestigations,
+        emergencyDoctorsNote: data.emergencyDoctorsNote,
+        emergencyStateInjection: data.emergencyStateInjection,
+        emergencyNote: data.emergencyNote,
       };
       
       const newPatient = await apiService.patients.create(payload);

@@ -54,20 +54,6 @@ interface Draft {
   city: string;
   pincode: string;
   type: "OPD" | "IPD" | "FollowUp";
-  department: string;
-  doctor: string;
-  opdCharge: string;
-  hasAllergy: boolean;
-  allergy: string;
-  hasDeformity: boolean;
-  deformity: string;
-  complaint: string;
-  mediclaim: boolean;
-  insuranceCompany: string;
-  policyNumber: string;
-  hasPastOps: boolean;
-  pastOperations: PastOperation[];
-  wardHistory: { ward: string; wardNumber: string }[];
   department: string; doctor: string; opdChargeId: string;
   hasAllergy: boolean; allergy: string;
   hasDeformity: boolean; deformity: string; complaint: string;
@@ -101,6 +87,20 @@ interface Draft {
   mlcPoliceInspectorName?: string;
   mlcPoliceStationAddress?: string;
   mlcFirOrCcNumber?: string;
+
+  isEmergency: boolean;
+  emergencyMedicalOfficer?: string;
+  emergencyCondition?: string;
+  emergencyPastHistory?: string;
+  emergencyBp?: string;
+  emergencyPulse?: string;
+  emergencySpo2?: string;
+  emergencyTemp?: string;
+  emergencyRr?: string;
+  emergencyInvestigations?: string;
+  emergencyDoctorsNote?: string;
+  emergencyStateInjection?: string;
+  emergencyNote?: string;
 }
 
 let cachedDraft: Draft | null = null;
@@ -116,52 +116,10 @@ function ReceptionPage() {
   }, []);
 
   const initial: Draft = {
-    name: "",
-    phone: "",
-    age: "",
-    gender: "Male",
-    weight: "",
-    height: "",
-    caste: "",
-    addressLine: "",
-    state: "",
-    city: "",
-    pincode: "",
+    name: "", phone: "", age: "", gender: "Male",
+    weight: "", height: "", caste: "",
+    addressLine: "", state: "", city: "", pincode: "",
     type: "OPD",
-    department: db.departments[0]?.name || "",
-    doctor: "",
-    opdCharge: String(opdCharge),
-    hasAllergy: false,
-    allergy: "",
-    hasDeformity: false,
-    deformity: "",
-    complaint: "",
-    mediclaim: false,
-    insuranceCompany: "",
-    policyNumber: "",
-    hasPastOps: false,
-    pastOperations: [],
-    wardHistory: [{ ward: "", wardNumber: "" }],
-    relativeName: "",
-    relation: "",
-    relativePhone: "",
-    relativeAddress: "",
-    maritalStatus: "",
-    child: "",
-    occupation: "",
-    religion: "",
-    isMlc: false,
-    mlcDrIncharge: "",
-    mlcMedicalOfficer: "",
-    mlcDetailOfMatter: "",
-    mlcDateOfMatter: "",
-    mlcTimeOfMatter: "",
-    mlcCauseOfMatter: "",
-    mlcPlaceOfMatter: "",
-    mlcAnyOfHospitalisedPastHO: "",
-    mlcCurrentCondition: "",
-    mlcNameOfFiller: "",
-    mlcFillerMoNo: "",
     department: db.departments[0]?.name || "", doctor: "", opdChargeId: defaultOpdCharge?.id ?? "",
     hasAllergy: false, allergy: "",
     hasDeformity: false, deformity: "", complaint: "",
@@ -175,6 +133,9 @@ function ReceptionPage() {
     mlcAnyOfHospitalisedPastHO: "", mlcCurrentCondition: "", mlcNameOfFiller: "", mlcFillerMoNo: "",
     mlcPermanentAddress: "", mlcPermanentSameAsCurrent: false, mlcReportedPoliceStation: "", mlcPoliceInspectorName: "",
     mlcPoliceStationAddress: "", mlcFirOrCcNumber: "",
+    isEmergency: false, emergencyMedicalOfficer: "", emergencyCondition: "", emergencyPastHistory: "",
+    emergencyBp: "", emergencyPulse: "", emergencySpo2: "", emergencyTemp: "", emergencyRr: "",
+    emergencyInvestigations: "", emergencyDoctorsNote: "", emergencyStateInjection: "", emergencyNote: "",
   };
 
   const [d, setD] = useState<Draft>(cachedDraft || initial);
@@ -201,7 +162,7 @@ function ReceptionPage() {
     if (!d.name || !d.phone || !d.age) return toast.error("Fill required patient fields");
     if (d.phone.length !== 10) return toast.error("Phone number must be exactly 10 digits");
     if (!d.department || !d.doctor) return toast.error("Select department and doctor");
-    const withFullDemographics = d.type === "IPD" || d.isMlc;
+    const withFullDemographics = d.type === "IPD" || d.isMlc || d.isEmergency;
     const patient = await receptionService.registerPatient({
       name: d.name,
       phone: d.phone,
@@ -251,6 +212,19 @@ function ReceptionPage() {
       mlcPoliceInspectorName: d.isMlc ? d.mlcPoliceInspectorName : undefined,
       mlcPoliceStationAddress: d.isMlc ? d.mlcPoliceStationAddress : undefined,
       mlcFirOrCcNumber: d.isMlc ? d.mlcFirOrCcNumber : undefined,
+      isEmergency: d.isEmergency,
+      emergencyMedicalOfficer: d.isEmergency ? d.emergencyMedicalOfficer : undefined,
+      emergencyCondition: d.isEmergency ? d.emergencyCondition : undefined,
+      emergencyPastHistory: d.isEmergency ? d.emergencyPastHistory : undefined,
+      emergencyBp: d.isEmergency ? d.emergencyBp : undefined,
+      emergencyPulse: d.isEmergency ? d.emergencyPulse : undefined,
+      emergencySpo2: d.isEmergency ? d.emergencySpo2 : undefined,
+      emergencyTemp: d.isEmergency ? d.emergencyTemp : undefined,
+      emergencyRr: d.isEmergency ? d.emergencyRr : undefined,
+      emergencyInvestigations: d.isEmergency ? d.emergencyInvestigations : undefined,
+      emergencyDoctorsNote: d.isEmergency ? d.emergencyDoctorsNote : undefined,
+      emergencyStateInjection: d.isEmergency ? d.emergencyStateInjection : undefined,
+      emergencyNote: d.isEmergency ? d.emergencyNote : undefined,
     });
     if (d.type === "IPD") {
       setConsentPatient(patient);
@@ -355,6 +329,19 @@ function ReceptionPage() {
         mlcPoliceInspectorName: patientData.mlcPoliceInspectorName || "",
         mlcPoliceStationAddress: patientData.mlcPoliceStationAddress || "",
         mlcFirOrCcNumber: patientData.mlcFirOrCcNumber || "",
+        isEmergency: !!patientData.isEmergency,
+        emergencyMedicalOfficer: patientData.emergencyMedicalOfficer || "",
+        emergencyCondition: patientData.emergencyCondition || "",
+        emergencyPastHistory: patientData.emergencyPastHistory || "",
+        emergencyBp: patientData.emergencyBp || "",
+        emergencyPulse: patientData.emergencyPulse || "",
+        emergencySpo2: patientData.emergencySpo2 || "",
+        emergencyTemp: patientData.emergencyTemp || "",
+        emergencyRr: patientData.emergencyRr || "",
+        emergencyInvestigations: patientData.emergencyInvestigations || "",
+        emergencyDoctorsNote: patientData.emergencyDoctorsNote || "",
+        emergencyStateInjection: patientData.emergencyStateInjection || "",
+        emergencyNote: patientData.emergencyNote || "",
       });
       toast.success("Patient details loaded for follow-up.");
       setShowResults(false);
@@ -776,6 +763,62 @@ function ReceptionPage() {
               )}
             </Section>
 
+            <Section title="Emergency Case">
+              <div className="flex items-center gap-2 mb-4">
+                <Checkbox id="isEmergency" checked={d.isEmergency} onCheckedChange={(v) => set("isEmergency", !!v)} />
+                <Label htmlFor="isEmergency" className="font-semibold text-rose-600 dark:text-rose-400 cursor-pointer">
+                  Is this an Emergency Case?
+                </Label>
+              </div>
+              {d.isEmergency && (
+                <div className="space-y-5 border border-rose-500/30 p-4 rounded-lg bg-rose-500/5">
+                  {d.type !== "IPD" && (
+                    <Group title="Patient & Relative Information">
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <Field label="Occupation"><Input value={d.occupation} onChange={(e) => set("occupation", e.target.value)} /></Field>
+                        <Field label="Relative Name"><Input value={d.relativeName} onChange={(e) => set("relativeName", e.target.value)} /></Field>
+                        <Field label="Relation"><Input value={d.relation} onChange={(e) => set("relation", e.target.value)} /></Field>
+                        <Field label="Mobile No. of Relative"><Input value={d.relativePhone} maxLength={10} onChange={(e) => set("relativePhone", e.target.value.replace(/\D/g, ''))} /></Field>
+                        <Field label="Relative Address" className="lg:col-span-4"><Input value={d.relativeAddress} onChange={(e) => set("relativeAddress", e.target.value)} /></Field>
+                      </div>
+                    </Group>
+                  )}
+
+                  <Group title="Attending Medical Staff">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <Field label="Medical Officer"><Input value={d.emergencyMedicalOfficer} onChange={(e) => set("emergencyMedicalOfficer", e.target.value)} placeholder="e.g. Dr. Patel" /></Field>
+                    </div>
+                  </Group>
+
+                  <Group title="Clinical Assessment">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <Field label="Health Condition"><Textarea rows={2} value={d.emergencyCondition} onChange={(e) => set("emergencyCondition", e.target.value)} placeholder="Current health condition..." /></Field>
+                      <Field label="Any of Hospitalised Past H/O"><Textarea rows={2} value={d.emergencyPastHistory} onChange={(e) => set("emergencyPastHistory", e.target.value)} placeholder="Past hospitalization history..." /></Field>
+                    </div>
+                  </Group>
+
+                  <Group title="Vitals">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                      <Field label="B.P."><Input value={d.emergencyBp} onChange={(e) => set("emergencyBp", e.target.value)} placeholder="120/80" /></Field>
+                      <Field label="PULSE"><Input value={d.emergencyPulse} onChange={(e) => set("emergencyPulse", e.target.value)} placeholder="72" /></Field>
+                      <Field label="SPo2"><Input value={d.emergencySpo2} onChange={(e) => set("emergencySpo2", e.target.value)} placeholder="98%" /></Field>
+                      <Field label="TEM&quot;"><Input value={d.emergencyTemp} onChange={(e) => set("emergencyTemp", e.target.value)} placeholder="98.6" /></Field>
+                      <Field label="R.R."><Input value={d.emergencyRr} onChange={(e) => set("emergencyRr", e.target.value)} placeholder="18" /></Field>
+                    </div>
+                  </Group>
+
+                  <Group title="Clinical Notes & Orders">
+                    <div className="grid sm:grid-cols-3 gap-4">
+                      <Field label="Investigations"><Textarea rows={3} value={d.emergencyInvestigations} onChange={(e) => set("emergencyInvestigations", e.target.value)} placeholder="Investigations..." /></Field>
+                      <Field label="Doctor's Note"><Textarea rows={3} value={d.emergencyDoctorsNote} onChange={(e) => set("emergencyDoctorsNote", e.target.value)} placeholder="Doctor's clinical notes..." /></Field>
+                      <Field label="State Injection (Stat)"><Textarea rows={3} value={d.emergencyStateInjection} onChange={(e) => set("emergencyStateInjection", e.target.value)} placeholder="Stat injections..." /></Field>
+                      <Field label="Note" className="sm:col-span-3"><Input value={d.emergencyNote} onChange={(e) => set("emergencyNote", e.target.value)} placeholder="Additional notes..." /></Field>
+                    </div>
+                  </Group>
+                </div>
+              )}
+            </Section>
+
             <Section title="Medico-Legal Case (MLC)">
               <div className="flex items-center gap-2 mb-4">
                 <Checkbox id="isMlc" checked={d.isMlc} onCheckedChange={(v) => set("isMlc", !!v)} />
@@ -880,6 +923,14 @@ function ReceptionPage() {
             <Button variant="outline" onClick={() => setReceipt(null)}>
               Close
             </Button>
+            {receipt?.isEmergency && (
+              <Button
+                variant="destructive"
+                onClick={() => receipt && handlePrintEmergency(receipt, db.hospitalSettings)}
+              >
+                <Printer className="h-4 w-4 mr-2" /> Print Emergency Form
+              </Button>
+            )}
             {receipt?.isMlc && (
               <Button
                 variant="secondary"
@@ -1746,6 +1797,476 @@ export const handlePrintMlc = async (patient: Patient, settings: any) => {
   printWindow.document.close();
 };
 
+export const handlePrintEmergency = async (patient: Patient, settings: any) => {
+  const rawLogo = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg'
+    ? settings.logoUrl
+    : '/lifecare-logo.jpg';
+  const absoluteLogoUrl = rawLogo.startsWith('http') || rawLogo.startsWith('data:')
+    ? rawLogo
+    : `${window.location.origin}${rawLogo.startsWith('/') ? '' : '/'}${rawLogo}`;
+
+  let logoSrc = absoluteLogoUrl;
+  try {
+    const resp = await fetch(absoluteLogoUrl, {
+      mode: 'cors',
+      cache: 'force-cache',
+      headers: { 'ngrok-skip-browser-warning': 'true' },
+    });
+    if (resp.ok) {
+      const blob = await resp.blob();
+      logoSrc = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+  } catch {
+    // keep absoluteLogoUrl fallback
+  }
+
+  const oldFrame = document.getElementById("emergency-print-iframe");
+  if (oldFrame) oldFrame.remove();
+
+  const printIframe = document.createElement("iframe");
+  printIframe.id = "emergency-print-iframe";
+  printIframe.style.position = "fixed";
+  printIframe.style.top = "-9999px";
+  printIframe.style.left = "-9999px";
+  printIframe.style.width = "0";
+  printIframe.style.height = "0";
+  printIframe.style.border = "none";
+  document.body.appendChild(printIframe);
+
+  const printWindow = printIframe.contentWindow;
+  if (!printWindow) return;
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-GB');
+  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const formattedDateTime = `${dateStr}, ${timeStr}`;
+
+  const addressParts = [patient.addressLine, patient.city, patient.state, patient.pincode].filter(Boolean);
+  const fullAddress = addressParts.join(', ');
+  const mediclaimStatus = patient.mediclaim
+    ? `YES${patient.insuranceCompany ? ` (${patient.insuranceCompany}${patient.policyNumber ? ` - ${patient.policyNumber}` : ''})` : ''}`
+    : 'NO';
+
+  const content = `
+    <html>
+      <head>
+        <title>Emergency Form - ${patient.code}</title>
+        <style>
+          @page { margin: 0; size: A4; }
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          html, body { 
+            height: 100%;
+            margin: 0; 
+            padding: 0; 
+            background: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            color: #111; 
+            line-height: 1.32; 
+            font-size: 11.5px; 
+            font-weight: 600; 
+          }
+          
+          .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            -webkit-transform: translate(-50%, -50%);
+            opacity: 0.13;
+            z-index: 0;
+            pointer-events: none;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          .watermark img { 
+            width: 88%; 
+            max-width: 780px; 
+            object-fit: contain; 
+            transform: rotate(-45deg); 
+            -webkit-transform: rotate(-45deg); 
+          }
+          
+          .page-container {
+            box-sizing: border-box;
+            width: 100%;
+            max-width: 210mm;
+            height: 295mm;
+            min-height: 295mm;
+            max-height: 295mm;
+            margin: 0 auto;
+            padding: 12px 28px 14px 28px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            z-index: 1;
+            background: transparent;
+            overflow: hidden;
+          }
+
+          .top-section { 
+            background-color: #4b4b4b !important; 
+            margin: 0 0 8px 0;
+            border-radius: 28px;
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            height: 84px;
+            position: relative;
+            flex-shrink: 0;
+          }
+          .logo-container { 
+            background-color: white !important;
+            height: 100%;
+            width: calc(100% - 130px);
+            border-radius: 28px 0 0 28px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          .logo-container img { width: 100%; height: 100%; border-radius: 28px 0 0 28px; object-fit: fill; }
+          .helpline-circle {
+            background-color: white !important;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+          }
+          .helpline-circle span { color: #e53e3e; }
+          .helpline-title { font-size: 10px; margin-bottom: 2px; }
+          .helpline-number { font-size: 13px; font-weight: bold; }
+          
+          .main-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 0;
+          }
+
+          .title-area { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: baseline; 
+            border-bottom: 1.5px solid #444; 
+            padding-bottom: 3px; 
+            margin-bottom: 5px; 
+          }
+          .form-title { 
+            color: #e53e3e; 
+            text-decoration: underline; 
+            font-size: 13.5px; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px;
+          }
+          .date-time { 
+            text-decoration: underline; 
+            color: #1e3a8a; 
+            font-size: 11.5px; 
+            font-weight: 700;
+          }
+          
+          .form-row { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 6px; 
+            align-items: baseline; 
+            margin-bottom: 2px;
+          }
+          .field-label { 
+            text-transform: uppercase; 
+            white-space: nowrap; 
+            color: #1e3a8a; 
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.2px;
+          }
+          .field-value { 
+            flex: 1; 
+            border-bottom: 1.5px dotted #333; 
+            color: #111; 
+            padding: 1px 4px; 
+            min-width: 35px; 
+            font-size: 11.5px;
+            font-weight: 700;
+          }
+          
+          .block { 
+            margin-bottom: 2px; 
+          }
+          .block-value { 
+            display: block; 
+            border-bottom: 1.5px dotted #333; 
+            min-height: 22px; 
+            padding: 1px 4px; 
+            white-space: pre-wrap; 
+            color: #111; 
+            font-size: 11.5px;
+            font-weight: 700;
+            line-height: 1.35;
+          }
+
+          .clinical-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 5px;
+            margin-bottom: 3px;
+            border: 1.5px solid #222;
+          }
+          .clinical-table th {
+            border: 1.5px solid #222;
+            background-color: #f1f5f9;
+            color: #1e3a8a;
+            padding: 4px 6px;
+            font-weight: 800;
+            text-align: center;
+            font-size: 11px;
+            letter-spacing: 0.3px;
+          }
+          .clinical-table td {
+            border: 1.5px solid #222;
+            height: 195px;
+            vertical-align: top;
+            padding: 4px;
+            position: relative;
+          }
+          .vitals-subtable {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 4px;
+          }
+          .vitals-subtable td {
+            border: 1px solid #444;
+            height: auto;
+            padding: 2px 4px;
+            font-size: 10.5px;
+          }
+          .v-label {
+            font-weight: 800;
+            color: #1e3a8a;
+            width: 45%;
+            background-color: #f8fafc;
+          }
+          .v-val {
+            font-weight: 700;
+            color: #111;
+            width: 55%;
+          }
+          .cell-content {
+            white-space: pre-wrap;
+            font-size: 11px;
+            font-weight: 600;
+            color: #111;
+            line-height: 1.35;
+          }
+
+          .sign-section {
+            margin-top: 6px;
+            padding-top: 20px;
+            flex-shrink: 0;
+          }
+          .sign-row { 
+            display: flex; 
+            justify-content: space-between; 
+            gap: 25px; 
+          }
+          .sign-cell { 
+            flex: 1; 
+            border-top: 1.5px solid #000; 
+            padding-top: 4px; 
+            text-transform: uppercase; 
+            font-size: 10.5px; 
+            font-weight: 800;
+            text-align: center; 
+            letter-spacing: 0.3px;
+          }
+
+          @media print {
+            html, body {
+              width: 210mm;
+              height: 297mm;
+              margin: 0;
+              padding: 0;
+              overflow: hidden;
+            }
+            .page-container {
+              width: 210mm;
+              height: 295mm;
+              min-height: 295mm;
+              max-height: 295mm;
+              page-break-after: avoid;
+              page-break-inside: avoid;
+              overflow: hidden;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="watermark">
+          <img src="${logoSrc}" alt="Watermark" onerror="this.src='/lifecare-logo.jpg'" />
+        </div>
+        <div class="page-container">
+          <div class="top-section">
+            <div class="logo-container">
+              <img src="${logoSrc}" alt="Hospital Logo" onerror="this.src='/lifecare-logo.jpg'" />
+            </div>
+            <div class="helpline-circle">
+              <span class="helpline-title">Help Line :</span>
+              <span class="helpline-number">${settings?.helpline || '7016124362'}</span>
+            </div>
+          </div>
+
+          <div class="main-body">
+            <div class="title-area">
+              <div class="form-title">EMERGENCY FORM</div>
+              <div class="date-time">DATE / TIME :- ${formattedDateTime}</div>
+            </div>
+
+            <div class="form-row">
+              <span class="field-label">PATIENT FULL NAME -</span>
+              <span class="field-value">${patient.name || ''}</span>
+            </div>
+
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">AGE / GENDER -</span>
+              <span class="field-value" style="flex: 2;">${patient.age ? `${patient.age} / ${patient.gender}` : ''}</span>
+              <span class="field-label">OCCUPATION -</span>
+              <span class="field-value" style="flex: 2;">${patient.occupation || '-'}</span>
+              <span class="field-label">CITY -</span>
+              <span class="field-value" style="flex: 2;">${patient.city || '-'}</span>
+            </div>
+
+            <div class="form-row">
+              <span class="field-label">CURRENTLY WITH RELATIVE NAME -</span>
+              <span class="field-value">${patient.relativeName || '-'}</span>
+            </div>
+
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">RELATION -</span>
+              <span class="field-value" style="flex: 2;">${patient.relation || '-'}</span>
+              <span class="field-label">RELATIVE MO NO. -</span>
+              <span class="field-value" style="flex: 2;">${patient.relativePhone || '-'}</span>
+            </div>
+
+            <div class="form-row">
+              <span class="field-label">PERMANENT ADDRESS -</span>
+              <span class="field-value">${fullAddress || '-'}</span>
+            </div>
+
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">(1) MO NO -</span>
+              <span class="field-value" style="flex: 2;">${patient.phone || '-'}</span>
+              <span class="field-label">MEDICLAIM -</span>
+              <span class="field-value" style="flex: 2;">${mediclaimStatus}</span>
+            </div>
+
+            <div class="block">
+              <span class="field-label">HEALTH CONDITION -</span>
+              <span class="block-value">${patient.emergencyCondition || '-'}</span>
+            </div>
+
+            <div class="block">
+              <span class="field-label">ANY OF HOSPITALISED PAST H/O -</span>
+              <span class="block-value">${patient.emergencyPastHistory || '-'}</span>
+            </div>
+
+            <div class="form-row" style="display: flex; margin-bottom: 3px;">
+              <span class="field-label">Dr. INCHARGE -</span>
+              <span class="field-value" style="flex: 2;">${patient.doctor || '-'}</span>
+              <span class="field-label">MEDICAL OFFICER -</span>
+              <span class="field-value" style="flex: 2;">${patient.emergencyMedicalOfficer || '-'}</span>
+            </div>
+
+            <table class="clinical-table">
+              <thead>
+                <tr>
+                  <th style="width: 27%;">VITALS &amp; INVESTIGATIONS</th>
+                  <th style="width: 36.5%;">DOCTORS NOTE</th>
+                  <th style="width: 36.5%;">STATE INJECTION</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="vertical-align: top; padding: 4px;">
+                    <table class="vitals-subtable">
+                      <tr><td class="v-label">B.P.</td><td class="v-val">${patient.emergencyBp || ''}</td></tr>
+                      <tr><td class="v-label">PULSE</td><td class="v-val">${patient.emergencyPulse || ''}</td></tr>
+                      <tr><td class="v-label">SPo2</td><td class="v-val">${patient.emergencySpo2 || ''}</td></tr>
+                      <tr><td class="v-label">TEM"</td><td class="v-val">${patient.emergencyTemp || ''}</td></tr>
+                      <tr><td class="v-label">R.R.</td><td class="v-val">${patient.emergencyRr || ''}</td></tr>
+                    </table>
+                    <div style="margin-top: 4px; font-weight: 800; font-size: 10.5px; text-decoration: underline; color: #1e3a8a;">INVESTIGATIONS :</div>
+                    <div class="cell-content">${patient.emergencyInvestigations || ''}</div>
+                  </td>
+                  <td style="vertical-align: top; padding: 6px;">
+                    <div class="cell-content">${patient.emergencyDoctorsNote || ''}</div>
+                  </td>
+                  <td style="vertical-align: top; padding: 6px;">
+                    <div class="cell-content">${patient.emergencyStateInjection || ''}</div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="form-row" style="margin-top: 4px;">
+              <span class="field-label">NOTE :-</span>
+              <span class="field-value">${patient.emergencyNote || ''}</span>
+            </div>
+          </div>
+
+          <div class="sign-section">
+            <div class="sign-row">
+              <div class="sign-cell">Dr. INCHARGE SIGN</div>
+              <div class="sign-cell">MEDICAL OFFICER SIGN</div>
+              <div class="sign-cell">PATIENT / RELATIVE SIGN</div>
+            </div>
+          </div>
+        </div>
+
+        <script>
+          var printed = false;
+          function doPrint() {
+            if (printed) return;
+            printed = true;
+            window.focus();
+            window.print();
+          }
+          if (document.readyState === 'complete') {
+            setTimeout(doPrint, 200);
+          } else {
+            window.addEventListener('load', function() {
+              setTimeout(doPrint, 200);
+            });
+            setTimeout(doPrint, 800);
+          }
+        </script>
+      </body>
+    </html>
+  `;
+  printWindow.document.open();
+  printWindow.document.write(content);
+  printWindow.document.close();
+};
+
 export function ConsentFormDialog({
   patient,
   settings,
@@ -2048,6 +2569,11 @@ export function ConsentFormDialog({
               <Button variant="outline" onClick={printConsent}>
                 <Printer className="h-4 w-4 mr-2" /> Print Consent Form
               </Button>
+              {patient.isEmergency && (
+                <Button variant="outline" className="border-rose-500 text-rose-600 hover:bg-rose-50" onClick={() => handlePrintEmergency(patient, settings)}>
+                  <Printer className="h-4 w-4 mr-2" /> Print Emergency Form
+                </Button>
+              )}
               {patient.isMlc && (
                 <Button variant="outline" onClick={() => handlePrintMlc(patient, settings)}>
                   <Printer className="h-4 w-4 mr-2" /> Print MLC
@@ -2055,11 +2581,18 @@ export function ConsentFormDialog({
               )}
             </div>
           )}
-          {isReprint && patient.isMlc && (
+          {isReprint && (
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => handlePrintMlc(patient, settings)}>
-                <Printer className="h-4 w-4 mr-2" /> Print MLC
-              </Button>
+              {patient.isEmergency && (
+                <Button variant="outline" className="border-rose-500 text-rose-600 hover:bg-rose-50" onClick={() => handlePrintEmergency(patient, settings)}>
+                  <Printer className="h-4 w-4 mr-2" /> Print Emergency Form
+                </Button>
+              )}
+              {patient.isMlc && (
+                <Button variant="outline" onClick={() => handlePrintMlc(patient, settings)}>
+                  <Printer className="h-4 w-4 mr-2" /> Print MLC
+                </Button>
+              )}
             </div>
           )}
           <div className="flex gap-2 w-full sm:w-auto justify-end">

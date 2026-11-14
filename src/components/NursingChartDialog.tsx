@@ -51,7 +51,7 @@ function MedicineSearchInput({
 
   const handleSelectMedicine = (m: Medicine) => {
     setQ(m.name);
-    
+
     // Find category name from db.categories
     const categoryObj = db.categories.find((c) => c.id === m.categoryId);
     const catName = categoryObj ? categoryObj.name.toLowerCase() : "";
@@ -66,7 +66,7 @@ function MedicineSearchInput({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!open || results.length === 0) return;
-    
+
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setSelectedIndex(prev => (prev < results.length - 1 ? prev + 1 : prev));
@@ -192,9 +192,9 @@ export function NursingChartDialog({ patient, settings, onClose, onSave, initial
     if (chart.medications) {
       setMedRows(chart.medications.map((m: any) => {
         const parseVal = (val: any) => {
-           if (val === "true") return true;
-           if (val === "false" || val === null) return false;
-           return val;
+          if (val === "true") return true;
+          if (val === "false" || val === null) return false;
+          return val;
         };
         return {
           name: m.name,
@@ -242,10 +242,10 @@ export function NursingChartDialog({ patient, settings, onClose, onSave, initial
           night: m.isSyrup ? m.night : (m.night ? "true" : "false"),
         }))
       };
-      
+
       const saved = await apiService.nursingCharts.save(payload);
       toast.success("Nursing chart saved successfully");
-      
+
       // Update charts list
       setCharts(prev => {
         const existing = prev.findIndex(c => c.date === saved.date);
@@ -256,7 +256,7 @@ export function NursingChartDialog({ patient, settings, onClose, onSave, initial
         }
         return [saved, ...prev].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       });
-      
+
       if (onSave) {
         onSave();
       }
@@ -296,24 +296,64 @@ export function NursingChartDialog({ patient, settings, onClose, onSave, initial
     setMedRows((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const generateVitalsTimes = (stepHours: number): string[] => {
+  const generateVitalsTimes = (admissionDateStr: string, stepHours: number): string[] => {
     // Use current time when printing so chart reflects the active shift starting from print time
-    const base = new Date();
-    const current = new Date(base);
+    const baseDate = new Date();
+    const startHour = baseDate.getHours();
 
-    // The shift always closes at the next 8 AM, so a morning admission prints a full day-plus-night chart.
-    const boundary = new Date(base);
-    if (base.getHours() >= 8) boundary.setDate(boundary.getDate() + 1);
-    boundary.setHours(8, 0, 0, 0);
+    let targetBoundaryHour: number;
+    let isNextDay = false;
+
+    if (startHour >= 8 && startHour < 20) {
+      targetBoundaryHour = 20; // 8 PM today
+    } else if (startHour >= 20) {
+      targetBoundaryHour = 8; // 8 AM next day
+      isNextDay = true;
+    } else {
+      targetBoundaryHour = 8; // 8 AM today
+    }
 
     const times: string[] = [];
-    while (current <= boundary && times.length < 48) {
+    const current = new Date(baseDate);
+
+    let maxSteps = 24;
+    while (maxSteps > 0) {
       const h = current.getHours();
       const ampm = h >= 12 ? "PM" : "AM";
       const displayH = h % 12 === 0 ? 12 : h % 12;
       const mStr = current.getMinutes().toString().padStart(2, "0");
-      times.push(`${displayH}:${mStr} ${ampm}`);
+      const timeFormatted = `${displayH}:${mStr} ${ampm}`;
+      times.push(timeFormatted);
+
+      // Advance by interval
       current.setHours(current.getHours() + stepHours);
+
+      if (targetBoundaryHour === 20) {
+        if (current.getHours() > 20 || (current.getHours() === 20 && current.getMinutes() > 0) || current.getDate() !== baseDate.getDate()) {
+          if (current.getHours() === 20 && current.getMinutes() === 0 && current.getDate() === baseDate.getDate()) {
+            times.push("8:00 PM");
+          }
+          break;
+        }
+      } else {
+        if (isNextDay) {
+          if (current.getDate() > baseDate.getDate() && (current.getHours() > 8 || (current.getHours() === 8 && current.getMinutes() > 0))) {
+            if (current.getHours() === 8 && current.getMinutes() === 0) {
+              times.push("8:00 AM");
+            }
+            break;
+          }
+        } else {
+          if (current.getHours() > 8 || (current.getHours() === 8 && current.getMinutes() > 0) || current.getDate() !== baseDate.getDate()) {
+            if (current.getHours() === 8 && current.getMinutes() === 0 && current.getDate() === baseDate.getDate()) {
+              times.push("8:00 AM");
+            }
+            break;
+          }
+        }
+      }
+
+      maxSteps--;
     }
 
     return times;
@@ -321,7 +361,7 @@ export function NursingChartDialog({ patient, settings, onClose, onSave, initial
 
   const handlePrint = () => {
     const step = parseInt(intervalHours, 10) || 2;
-    const generatedTimes = generateVitalsTimes(step);
+    const generatedTimes = generateVitalsTimes(patient.registeredAt, step);
 
     let printIframe = document.getElementById("print-iframe") as HTMLIFrameElement;
     if (!printIframe) {
@@ -792,7 +832,7 @@ export function NursingChartDialog({ patient, settings, onClose, onSave, initial
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground mt-1">
-              Time column on Page 2 starts from the print time ({new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}) and runs up to 8 AM the next day.
+              Time column on Page 2 starts from admission ({new Date(patient.registeredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}) up to the 8-to-8 shift boundary.
             </p>
           </div>
 
