@@ -95,15 +95,19 @@ export interface Patient {
   emergencyMedicalOfficer?: string;
   emergencyCondition?: string;
   emergencyPastHistory?: string;
-  emergencyBp?: string;
-  emergencyPulse?: string;
-  emergencySpo2?: string;
-  emergencyTemp?: string;
-  emergencyRr?: string;
   emergencyInvestigations?: string;
   emergencyDoctorsNote?: string;
   emergencyStateInjection?: string;
   emergencyNote?: string;
+
+  isSurgery?: boolean;
+  surgeryType?: string;
+  surgeryRiskNote?: string;
+  surgeryPreOpStatus?: string;
+  surgeryPostOpStatus?: string;
+  surgeryPastHistory?: string;
+
+  isIcu?: boolean;
 }
 
 export interface PrescribedMedicine {

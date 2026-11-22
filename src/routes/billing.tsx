@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import numberToWords from "number-to-words";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ChargeCombobox } from "@/components/ChargeCombobox";
 
 export const Route = createFileRoute("/billing")({
   component: () => (
@@ -68,7 +69,8 @@ function BillingRoute() {
             />
           </div>
 
-          <div className="rounded-lg border overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="rounded-lg border overflow-x-auto hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -89,39 +91,169 @@ function BillingRoute() {
                     </TableCell>
                   </TableRow>
                 )}
-                {paginatedPatients.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium">{p.code}</TableCell>
-                    <TableCell>{p.name}</TableCell>
-                    <TableCell>{p.age} / {p.gender}</TableCell>
-                    <TableCell>{p.ward || "N/A"}</TableCell>
-                    <TableCell>{p.doctor || "N/A"}</TableCell>
-                    <TableCell>
-                      <Badge variant={(p.status as string) === "Admitted" ? "destructive" : "default"}>
-                        {p.status || "Admitted"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => setActivePatient(p)} className="text-primary hover:text-primary/80">
-                        <FileText className="h-4 w-4 mr-1" /> Deposits
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setDischargeBillPatient(p)} className="text-red-600 hover:text-red-800 ml-2">
-                        <FileText className="h-4 w-4 mr-1" /> Case Bill
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setLabBillPatient(p)} className="text-orange-600 hover:text-orange-800 ml-2">
-                        <FileText className="h-4 w-4 mr-1" /> Lab Bill
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setFinalBillPatient(p)} className="text-purple-600 hover:text-purple-800 ml-2">
-                        <FileText className="h-4 w-4 mr-1" /> Final Bill
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {paginatedPatients.map((p) => {
+                  const isDischarged =
+                    p.status === "Completed" ||
+                    Boolean(
+                      localStorage.getItem(`lifecare_discharge_${p.code}`) ||
+                      localStorage.getItem(`lifecare_discharge_${p.id}`)
+                    );
+
+                  return (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium">{p.code}</TableCell>
+                      <TableCell>{p.name}</TableCell>
+                      <TableCell>{p.age} / {p.gender}</TableCell>
+                      <TableCell>{p.ward || "N/A"}</TableCell>
+                      <TableCell>{p.doctor || "N/A"}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={isDischarged ? "default" : "destructive"}
+                          className={isDischarged ? "bg-purple-600 hover:bg-purple-600 text-white" : ""}
+                        >
+                          {isDischarged ? "Discharged" : "Admitted"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => setActivePatient(p)} className="text-primary hover:text-primary/80">
+                          <FileText className="h-4 w-4 mr-1" /> Deposits
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setDischargeBillPatient(p)} className="text-red-600 hover:text-red-800 ml-2">
+                          <FileText className="h-4 w-4 mr-1" /> Case Bill
+                        </Button>
+                        {isDischarged && (
+                          <Button variant="ghost" size="sm" onClick={() => setFinalBillPatient(p)} className="text-purple-600 hover:text-purple-800 ml-2">
+                            <FileText className="h-4 w-4 mr-1" /> Final Bill
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
+
+          {/* Mobile Grid View - Compact Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 md:hidden">
+            {paginatedPatients.length === 0 && (
+              <div className="text-center text-muted-foreground py-8 text-sm col-span-full border rounded-lg bg-muted/20">
+                No IPD patients found.
+              </div>
+            )}
+            {paginatedPatients.map((p) => {
+              const isDischarged =
+                p.status === "Completed" ||
+                Boolean(
+                  localStorage.getItem(`lifecare_discharge_${p.code}`) ||
+                  localStorage.getItem(`lifecare_discharge_${p.id}`)
+                );
+
+              return (
+                <div
+                  key={p.id}
+                  className="rounded-lg border bg-card p-3 shadow-sm hover:border-primary/40 transition-colors flex flex-col justify-between gap-2.5"
+                >
+                  <div className="space-y-1.5">
+                    {/* Top: Code, Date, Status */}
+                    <div className="flex items-center justify-between gap-1 text-[11px] text-muted-foreground">
+                      <span className="font-mono font-semibold text-primary/90">{p.code}</span>
+                      <div className="flex items-center gap-1.5">
+                        {p.registeredAt && (
+                          <span>{new Date(p.registeredAt).toLocaleDateString()}</span>
+                        )}
+                        <Badge
+                          variant={isDischarged ? "default" : "destructive"}
+                          className={`text-[10px] px-1.5 py-0 h-4 font-medium ${
+                            isDischarged ? "bg-purple-600 hover:bg-purple-600 text-white" : ""
+                          }`}
+                        >
+                          {isDischarged ? "Discharged" : "Admitted"}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Name & Badges */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-semibold text-sm text-foreground">{p.name}</span>
+                      {p.isEmergency && (
+                        <Badge variant="destructive" className="text-[9px] px-1 py-0 h-3.5 font-bold tracking-wider">
+                          EMERGENCY
+                        </Badge>
+                      )}
+                      {p.isIcu && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-cyan-500 text-cyan-600 font-bold tracking-wider bg-cyan-500/10">
+                          ICU
+                        </Badge>
+                      )}
+                      {p.isSurgery && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-indigo-500 text-indigo-600 font-bold tracking-wider bg-indigo-500/10">
+                          SURGERY
+                        </Badge>
+                      )}
+                      {p.isMlc && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-amber-500 text-amber-600 font-bold tracking-wider bg-amber-500/10">
+                          MLC
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Details: Age/Gender & Ward & Doctor */}
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{p.age} / {p.gender}</span>
+                      <span className="font-medium text-foreground/80">
+                        Ward: {p.ward || "N/A"}{p.wardNumber ? ` (${p.wardNumber})` : ""}
+                      </span>
+                    </div>
+                    {p.doctor && (
+                      <div className="text-[11px] text-muted-foreground truncate">
+                        Dr. {p.doctor}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions Row */}
+                  <div className="flex items-center gap-1.5 pt-2 border-t border-border/60 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActivePatient(p)}
+                      className="h-7 text-xs px-2 gap-1 font-medium text-primary hover:text-primary/90 border-primary/30 flex-1 sm:flex-initial"
+                      title="Manage Deposits"
+                    >
+                      <FileText className="h-3 w-3" />
+                      <span>Deposits</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDischargeBillPatient(p)}
+                      className="h-7 text-xs px-2 gap-1 font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-300 flex-1 sm:flex-initial"
+                      title="Case Bill"
+                    >
+                      <FileText className="h-3 w-3" />
+                      <span>Case Bill</span>
+                    </Button>
+                    {isDischarged && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFinalBillPatient(p)}
+                        className="h-7 text-xs px-2 gap-1 font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50 border-purple-300 w-full sm:w-auto"
+                        title="Final Bill"
+                      >
+                        <FileText className="h-3 w-3" />
+                        <span>Final Bill</span>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           {totalPages > 1 && (
-            <div className="flex justify-end gap-2 items-center">
+            <div className="flex justify-between sm:justify-end gap-2 items-center pt-2">
               <Button variant="outline" size="sm" onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>
                 Previous
               </Button>
@@ -266,7 +398,7 @@ function DepositDialog({ patient, onClose, settings }: { patient: Patient; onClo
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[96vw] sm:max-w-4xl max-h-[92vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>Deposit Receipt for {patient.name}</DialogTitle>
         </DialogHeader>
@@ -645,7 +777,7 @@ function IpdCaseBillDialog({ patient, onClose, settings }: { patient: Patient; o
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[96vw] sm:max-w-4xl max-h-[92vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>IPD Case Bill for {patient.name}</DialogTitle>
         </DialogHeader>
@@ -703,8 +835,8 @@ function IpdCaseBillDialog({ patient, onClose, settings }: { patient: Patient; o
                     </div>
                 </div>
 
-                <div className="border rounded-md">
-                    <Table>
+                <div className="border rounded-md overflow-visible">
+                    <Table className="overflow-visible">
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-[50px]">No</TableHead>
@@ -715,22 +847,22 @@ function IpdCaseBillDialog({ patient, onClose, settings }: { patient: Patient; o
                                 <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
                         </TableHeader>
-                        <TableBody>
+                        <TableBody className="overflow-visible">
                             {items.map((it, idx) => (
-                                <TableRow key={idx}>
+                                <TableRow key={idx} className="overflow-visible">
                                     <TableCell>{idx + 1}</TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <Select value={it.description} onValueChange={v => updateItem(idx, "description", v)}>
-                                                <SelectTrigger className="h-8 flex-1">
-                                                    <SelectValue placeholder="Select procedure" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {db.charges.filter(c => !c.category || c.category === "Hospital Bill").map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-                                            <Input value={it.description} onChange={e => updateItem(idx, "description", e.target.value)} placeholder="Custom..." className="h-8 w-1/3 hidden" />
-                                        </div>
+                                    <TableCell className="overflow-visible relative">
+                                        <ChargeCombobox
+                                            value={it.description}
+                                            onChange={(v, matchedAmount) => {
+                                                updateItem(idx, "description", v);
+                                                if (matchedAmount !== undefined) {
+                                                    updateItem(idx, "charges", matchedAmount);
+                                                }
+                                            }}
+                                            options={db.charges.filter(c => !c.category || c.category === "Hospital Bill")}
+                                            placeholder="Select or type procedure..."
+                                        />
                                     </TableCell>
                                     <TableCell>
                                         <Input type="number" value={it.itemReceiptNo} onChange={e => updateItem(idx, "itemReceiptNo", e.target.value)} placeholder="1" className="h-8" />
@@ -1024,7 +1156,7 @@ function LabBillDialog({ patient, onClose, settings }: { patient: Patient; onClo
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[96vw] sm:max-w-4xl max-h-[92vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>IPD Case Bill for {patient.name}</DialogTitle>
         </DialogHeader>
@@ -1078,8 +1210,8 @@ function LabBillDialog({ patient, onClose, settings }: { patient: Patient; onClo
                     </div>
                 </div>
 
-                <div className="border rounded-md">
-                    <Table>
+                <div className="border rounded-md overflow-visible">
+                    <Table className="overflow-visible">
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-[50px]">No</TableHead>
@@ -1090,22 +1222,22 @@ function LabBillDialog({ patient, onClose, settings }: { patient: Patient; onClo
                                 <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
                         </TableHeader>
-                        <TableBody>
+                        <TableBody className="overflow-visible">
                             {items.map((it, idx) => (
-                                <TableRow key={idx}>
+                                <TableRow key={idx} className="overflow-visible">
                                     <TableCell>{idx + 1}</TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2">
-                                            <Select value={it.description} onValueChange={v => updateItem(idx, "description", v)}>
-                                                <SelectTrigger className="h-8 flex-1">
-                                                    <SelectValue placeholder="Select procedure" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {db.charges.filter(c => c.category === "Lab Bill").map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-                                            <Input value={it.description} onChange={e => updateItem(idx, "description", e.target.value)} placeholder="Custom..." className="h-8 w-1/3 hidden" />
-                                        </div>
+                                    <TableCell className="overflow-visible relative">
+                                        <ChargeCombobox
+                                            value={it.description}
+                                            onChange={(v, matchedAmount) => {
+                                                updateItem(idx, "description", v);
+                                                if (matchedAmount !== undefined) {
+                                                    updateItem(idx, "charges", matchedAmount);
+                                                }
+                                            }}
+                                            options={db.charges.filter(c => c.category === "Lab Bill")}
+                                            placeholder="Select or type lab test..."
+                                        />
                                     </TableCell>
                                     <TableCell>
                                         <Input type="number" value={it.itemReceiptNo} onChange={e => updateItem(idx, "itemReceiptNo", e.target.value)} placeholder="1" className="h-8" />
@@ -1424,7 +1556,7 @@ function FinalBillDialog({ patient, onClose, settings }: { patient: Patient; onC
 
   return (
     <Dialog open onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[96vw] sm:max-w-4xl max-h-[92vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>IPD Case Bill for {patient.name}</DialogTitle>
         </DialogHeader>
@@ -1482,8 +1614,8 @@ function FinalBillDialog({ patient, onClose, settings }: { patient: Patient; onC
                     </div>
                 </div>
 
-                <div className="border rounded-md">
-                    <Table>
+                <div className="border rounded-md overflow-visible">
+                    <Table className="overflow-visible">
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-[50px]">No</TableHead>
@@ -1494,24 +1626,27 @@ function FinalBillDialog({ patient, onClose, settings }: { patient: Patient; onC
                                 <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
                         </TableHeader>
-                        <TableBody>
+                        <TableBody className="overflow-visible">
                             {items.map((it, idx) => (
-                                <TableRow key={idx}>
+                                <TableRow key={idx} className="overflow-visible">
                                     <TableCell>{idx + 1}</TableCell>
-                                    <TableCell>
+                                    <TableCell className="overflow-visible relative">
                                         {it.isLocked ? (
                                             <div className="h-8 px-2 flex items-center text-sm font-medium bg-muted/30 rounded border border-dashed border-muted-foreground/30 text-foreground">
                                                 {it.description}
                                             </div>
                                         ) : (
-                                            <div className="flex items-center gap-2">
-                                                <Input
-                                                    value={it.description}
-                                                    onChange={e => updateItem(idx, "description", e.target.value)}
-                                                    placeholder="Enter charge description..."
-                                                    className="h-8 flex-1"
-                                                />
-                                            </div>
+                                            <ChargeCombobox
+                                                value={it.description}
+                                                onChange={(v, matchedAmount) => {
+                                                    updateItem(idx, "description", v);
+                                                    if (matchedAmount !== undefined) {
+                                                        updateItem(idx, "charges", matchedAmount);
+                                                    }
+                                                }}
+                                                options={db.charges}
+                                                placeholder="Select or type charge description..."
+                                            />
                                         )}
                                     </TableCell>
                                     <TableCell>

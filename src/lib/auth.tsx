@@ -73,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasRole = (roles: Role[]) => !!user && roles.includes(user.role);
   
   const hasPermission = (module: string, action: string) => {
+    if (user?.role?.toLowerCase() === "admin") return true;
     return permissions.some(p => p.moduleName === module && p.actionName === action);
   };
   

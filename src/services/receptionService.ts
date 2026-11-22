@@ -67,15 +67,52 @@ function mapPatient(p: PatientBackendDto): Patient {
     emergencyMedicalOfficer: p.emergencyMedicalOfficer,
     emergencyCondition: p.emergencyCondition,
     emergencyPastHistory: p.emergencyPastHistory,
-    emergencyBp: p.emergencyBp,
-    emergencyPulse: p.emergencyPulse,
-    emergencySpo2: p.emergencySpo2,
-    emergencyTemp: p.emergencyTemp,
-    emergencyRr: p.emergencyRr,
     emergencyInvestigations: p.emergencyInvestigations,
     emergencyDoctorsNote: p.emergencyDoctorsNote,
     emergencyStateInjection: p.emergencyStateInjection,
     emergencyNote: p.emergencyNote,
+    isSurgery: p.isSurgery ?? (() => {
+      try {
+        const item = localStorage.getItem(`lifecare_surgery_${p.code}`) || localStorage.getItem(`lifecare_surgery_${p.id}`);
+        return item ? JSON.parse(item).isSurgery : false;
+      } catch { return false; }
+    })(),
+    surgeryType: p.surgeryType ?? (() => {
+      try {
+        const item = localStorage.getItem(`lifecare_surgery_${p.code}`) || localStorage.getItem(`lifecare_surgery_${p.id}`);
+        return item ? JSON.parse(item).surgeryType : undefined;
+      } catch { return undefined; }
+    })(),
+    surgeryRiskNote: p.surgeryRiskNote ?? (() => {
+      try {
+        const item = localStorage.getItem(`lifecare_surgery_${p.code}`) || localStorage.getItem(`lifecare_surgery_${p.id}`);
+        return item ? JSON.parse(item).surgeryRiskNote : undefined;
+      } catch { return undefined; }
+    })(),
+    surgeryPreOpStatus: p.surgeryPreOpStatus ?? (() => {
+      try {
+        const item = localStorage.getItem(`lifecare_surgery_${p.code}`) || localStorage.getItem(`lifecare_surgery_${p.id}`);
+        return item ? JSON.parse(item).surgeryPreOpStatus : undefined;
+      } catch { return undefined; }
+    })(),
+    surgeryPostOpStatus: p.surgeryPostOpStatus ?? (() => {
+      try {
+        const item = localStorage.getItem(`lifecare_surgery_${p.code}`) || localStorage.getItem(`lifecare_surgery_${p.id}`);
+        return item ? JSON.parse(item).surgeryPostOpStatus : undefined;
+      } catch { return undefined; }
+    })(),
+    surgeryPastHistory: p.surgeryPastHistory ?? (() => {
+      try {
+        const item = localStorage.getItem(`lifecare_surgery_${p.code}`) || localStorage.getItem(`lifecare_surgery_${p.id}`);
+        return item ? JSON.parse(item).surgeryPastHistory : undefined;
+      } catch { return undefined; }
+    })(),
+    isIcu: p.isIcu ?? (() => {
+      try {
+        const item = localStorage.getItem(`lifecare_icu_${p.code}`) || localStorage.getItem(`lifecare_icu_${p.id}`);
+        return item ? JSON.parse(item).isIcu : false;
+      } catch { return false; }
+    })(),
   };
 }
 
@@ -171,19 +208,55 @@ export const receptionService = {
         emergencyMedicalOfficer: data.emergencyMedicalOfficer,
         emergencyCondition: data.emergencyCondition,
         emergencyPastHistory: data.emergencyPastHistory,
-        emergencyBp: data.emergencyBp,
-        emergencyPulse: data.emergencyPulse,
-        emergencySpo2: data.emergencySpo2,
-        emergencyTemp: data.emergencyTemp,
-        emergencyRr: data.emergencyRr,
         emergencyInvestigations: data.emergencyInvestigations,
         emergencyDoctorsNote: data.emergencyDoctorsNote,
         emergencyStateInjection: data.emergencyStateInjection,
         emergencyNote: data.emergencyNote,
+        isSurgery: data.isSurgery ?? false,
+        surgeryType: data.surgeryType,
+        surgeryRiskNote: data.surgeryRiskNote,
+        surgeryPreOpStatus: data.surgeryPreOpStatus,
+        surgeryPostOpStatus: data.surgeryPostOpStatus,
+        surgeryPastHistory: data.surgeryPastHistory,
+        isIcu: data.isIcu ?? false,
       };
       
       const newPatient = await apiService.patients.create(payload);
+      
+      if (data.isIcu) {
+        try {
+          localStorage.setItem(`lifecare_icu_${newPatient.code}`, JSON.stringify({ isIcu: true }));
+          localStorage.setItem(`lifecare_icu_${newPatient.id}`, JSON.stringify({ isIcu: true }));
+        } catch {}
+      }
+
+      if (data.isSurgery) {
+        const surgeryObj = {
+          isSurgery: true,
+          surgeryType: data.surgeryType,
+          surgeryRiskNote: data.surgeryRiskNote,
+          surgeryPreOpStatus: data.surgeryPreOpStatus,
+          surgeryPostOpStatus: data.surgeryPostOpStatus,
+          surgeryPastHistory: data.surgeryPastHistory,
+        };
+        try {
+          localStorage.setItem(`lifecare_surgery_${newPatient.code}`, JSON.stringify(surgeryObj));
+          localStorage.setItem(`lifecare_surgery_${newPatient.id}`, JSON.stringify(surgeryObj));
+        } catch {}
+      }
+
       const mappedPatient = mapPatient(newPatient);
+      if (data.isIcu) {
+        mappedPatient.isIcu = true;
+      }
+      if (data.isSurgery) {
+        mappedPatient.isSurgery = true;
+        mappedPatient.surgeryType = data.surgeryType;
+        mappedPatient.surgeryRiskNote = data.surgeryRiskNote;
+        mappedPatient.surgeryPreOpStatus = data.surgeryPreOpStatus;
+        mappedPatient.surgeryPostOpStatus = data.surgeryPostOpStatus;
+        mappedPatient.surgeryPastHistory = data.surgeryPastHistory;
+      }
       store.set((db) => {
         db.patients.push(mappedPatient);
       });

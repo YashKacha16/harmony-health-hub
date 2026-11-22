@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as BillingRouteImport } from './routes/billing'
 import { Route as EmployeesRouteImport } from './routes/employees'
 import { Route as IpdRouteImport } from './routes/ipd'
+import { Route as LaboratoryRouteImport } from './routes/laboratory'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MedicalRouteImport } from './routes/medical'
 import { Route as OpdRouteImport } from './routes/opd'
@@ -38,6 +39,11 @@ const EmployeesRoute = EmployeesRouteImport.update({
 const IpdRoute = IpdRouteImport.update({
   id: '/ipd',
   path: '/ipd',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LaboratoryRoute = LaboratoryRouteImport.update({
+  id: '/laboratory',
+  path: '/laboratory',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/billing': typeof BillingRoute
   '/employees': typeof EmployeesRoute
   '/ipd': typeof IpdRoute
+  '/laboratory': typeof LaboratoryRoute
   '/login': typeof LoginRoute
   '/medical': typeof MedicalRoute
   '/opd': typeof OpdRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/billing': typeof BillingRoute
   '/employees': typeof EmployeesRoute
   '/ipd': typeof IpdRoute
+  '/laboratory': typeof LaboratoryRoute
   '/login': typeof LoginRoute
   '/medical': typeof MedicalRoute
   '/opd': typeof OpdRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/billing': typeof BillingRoute
   '/employees': typeof EmployeesRoute
   '/ipd': typeof IpdRoute
+  '/laboratory': typeof LaboratoryRoute
   '/login': typeof LoginRoute
   '/medical': typeof MedicalRoute
   '/opd': typeof OpdRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/billing'
     | '/employees'
     | '/ipd'
+    | '/laboratory'
     | '/login'
     | '/medical'
     | '/opd'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/billing'
     | '/employees'
     | '/ipd'
+    | '/laboratory'
     | '/login'
     | '/medical'
     | '/opd'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/billing'
     | '/employees'
     | '/ipd'
+    | '/laboratory'
     | '/login'
     | '/medical'
     | '/opd'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   BillingRoute: typeof BillingRoute
   EmployeesRoute: typeof EmployeesRoute
   IpdRoute: typeof IpdRoute
+  LaboratoryRoute: typeof LaboratoryRoute
   LoginRoute: typeof LoginRoute
   MedicalRoute: typeof MedicalRoute
   OpdRoute: typeof OpdRoute
@@ -188,6 +201,13 @@ declare module '@tanstack/react-router' {
       path: '/ipd'
       fullPath: '/ipd'
       preLoaderRoute: typeof IpdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/laboratory': {
+      id: '/laboratory'
+      path: '/laboratory'
+      fullPath: '/laboratory'
+      preLoaderRoute: typeof LaboratoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -240,6 +260,7 @@ const rootRouteChildren: RootRouteChildren = {
   BillingRoute: BillingRoute,
   EmployeesRoute: EmployeesRoute,
   IpdRoute: IpdRoute,
+  LaboratoryRoute: LaboratoryRoute,
   LoginRoute: LoginRoute,
   MedicalRoute: MedicalRoute,
   OpdRoute: OpdRoute,

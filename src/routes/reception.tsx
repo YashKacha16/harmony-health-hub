@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
-import { Printer, Plus, Trash2, FileCheck, CheckCircle2 } from "lucide-react";
+import { Printer, Plus, Trash2, FileCheck, CheckCircle2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/components/RoleGuard";
@@ -22,7 +22,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useDB } from "@/lib/useStore";
 import { receptionService } from "@/services/receptionService";
 import { settingsService } from "@/services/settingsService";
-import type { PastOperation, Patient } from "@/lib/store";
+import { apiService, type RolePermissionBackendDto } from "@/api/apiService";
+import type { PastOperation, Patient, Charge } from "@/lib/store";
 import numberToWords from "number-to-words";
 
 export const Route = createFileRoute("/reception")({
@@ -92,22 +93,50 @@ interface Draft {
   emergencyMedicalOfficer?: string;
   emergencyCondition?: string;
   emergencyPastHistory?: string;
-  emergencyBp?: string;
-  emergencyPulse?: string;
-  emergencySpo2?: string;
-  emergencyTemp?: string;
-  emergencyRr?: string;
   emergencyInvestigations?: string;
   emergencyDoctorsNote?: string;
   emergencyStateInjection?: string;
   emergencyNote?: string;
+
+  isSurgery: boolean;
+  surgeryType?: string;
+  surgeryRiskNote?: string;
+  surgeryPreOpStatus?: string;
+  surgeryPostOpStatus?: string;
+  surgeryPastHistory?: string;
+
+  isIcu: boolean;
 }
 
 let cachedDraft: Draft | null = null;
 
 function ReceptionPage() {
   const db = useDB();
-  const defaultOpdCharge = db.charges.find((c) => c.name === "OPD Charge");
+
+  // Filter charges specifically for Reception (OPD & Follow-up)
+  const receptionCharges = useMemo<Charge[]>(
+    () => db.charges.filter((c: Charge) => c.category === "Reception Charge" || c.category === "Reception"),
+    [db.charges]
+  );
+
+  const chargesForReception = useMemo<Charge[]>(() => {
+    if (receptionCharges.length > 0) return receptionCharges;
+    // Fallback: If user hasn't categorized yet, show charges matching OPD or follow-up
+    return db.charges.filter(
+      (c: Charge) =>
+        c.name.toLowerCase().includes("opd") ||
+        c.name.toLowerCase().includes("folow") ||
+        c.name.toLowerCase().includes("follow") ||
+        c.name.toLowerCase().includes("consult")
+    );
+  }, [db.charges, receptionCharges]);
+
+  const defaultOpdCharge = useMemo<Charge | undefined>(() => {
+    return (
+      chargesForReception.find((c: Charge) => c.name.toLowerCase().includes("opd")) ||
+      chargesForReception[0]
+    );
+  }, [chargesForReception]);
 
   useEffect(() => {
     settingsService.listCharges();
@@ -134,8 +163,9 @@ function ReceptionPage() {
     mlcPermanentAddress: "", mlcPermanentSameAsCurrent: false, mlcReportedPoliceStation: "", mlcPoliceInspectorName: "",
     mlcPoliceStationAddress: "", mlcFirOrCcNumber: "",
     isEmergency: false, emergencyMedicalOfficer: "", emergencyCondition: "", emergencyPastHistory: "",
-    emergencyBp: "", emergencyPulse: "", emergencySpo2: "", emergencyTemp: "", emergencyRr: "",
     emergencyInvestigations: "", emergencyDoctorsNote: "", emergencyStateInjection: "", emergencyNote: "",
+    isSurgery: false, surgeryType: "", surgeryRiskNote: "", surgeryPreOpStatus: "", surgeryPostOpStatus: "", surgeryPastHistory: "",
+    isIcu: false,
   };
 
   const [d, setD] = useState<Draft>(cachedDraft || initial);
@@ -144,99 +174,159 @@ function ReceptionPage() {
     cachedDraft = d;
   }, [d]);
 
+  useEffect(() => {
+    if (!d.opdChargeId && defaultOpdCharge) {
+      setD((prev) => ({ ...prev, opdChargeId: defaultOpdCharge.id }));
+    }
+  }, [defaultOpdCharge, d.opdChargeId]);
+
   const [receipt, setReceipt] = useState<Patient | null>(null);
   const [consentPatient, setConsentPatient] = useState<Patient | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Patient[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [rolePermissions, setRolePermissions] = useState<RolePermissionBackendDto[]>([]);
+
+  useEffect(() => {
+    apiService.rolePermissions.getAll()
+      .then((data) => setRolePermissions(data || []))
+      .catch((err) => console.error("Failed to load role permissions:", err));
+  }, []);
 
   const doctors = useMemo(
     () => db.employees.filter((e) => e.department === d.department && e.active),
     [db.employees, d.department],
   );
 
-  const set = <K extends keyof Draft>(k: K, v: Draft[K]) => setD((prev) => ({ ...prev, [k]: v }));
+  const medicalOfficers = useMemo(() => {
+    const allowedRoles = new Set(
+      rolePermissions
+        .filter((p) => p.moduleName === "Medical Officer" && p.actionName === "Access" && p.isAllowed)
+        .map((p) => p.roleName)
+    );
+
+    const hasAnyMedicalOfficerConfig = rolePermissions.some(
+      (p) => p.moduleName === "Medical Officer" && p.actionName === "Access"
+    );
+
+    return db.employees.filter((emp) => {
+      if (!emp.active) return false;
+      if (hasAnyMedicalOfficerConfig) {
+        return allowedRoles.has(emp.role);
+      }
+      return emp.role === "Doctor";
+    });
+  }, [rolePermissions, db.employees]);
+
+  const set = <K extends keyof Draft>(k: K, v: Draft[K]) => {
+    setD((prev) => {
+      const next = { ...prev, [k]: v };
+      if (k === "emergencyPastHistory") {
+        next.mlcAnyOfHospitalisedPastHO = v as string;
+      } else if (k === "mlcAnyOfHospitalisedPastHO") {
+        next.emergencyPastHistory = v as string;
+      } else if (k === "emergencyMedicalOfficer") {
+        next.mlcMedicalOfficer = v as string;
+      } else if (k === "mlcMedicalOfficer") {
+        next.emergencyMedicalOfficer = v as string;
+      }
+      return next;
+    });
+  };
 
   const submit = async () => {
+    if (isSubmitting) return;
     if (!d.name || !d.phone || !d.age) return toast.error("Fill required patient fields");
     if (d.phone.length !== 10) return toast.error("Phone number must be exactly 10 digits");
     if (!d.department || !d.doctor) return toast.error("Select department and doctor");
-    const withFullDemographics = d.type === "IPD" || d.isMlc || d.isEmergency;
-    const patient = await receptionService.registerPatient({
-      name: d.name,
-      phone: d.phone,
-      age: Number(d.age),
-      gender: d.gender,
-      weight: d.weight ? Number(d.weight) : undefined,
-      height: d.height ? Number(d.height) : undefined,
-      caste: d.caste || undefined,
-      addressLine: d.addressLine,
-      state: d.state,
-      city: d.city,
-      pincode: d.pincode,
-      type: d.type === "FollowUp" ? "OPD" : d.type,
-      department: d.department, doctor: d.doctor,
-      opdCharge: db.charges.find((c) => c.id === d.opdChargeId)?.amount ?? 0,
-      allergy: d.hasAllergy ? d.allergy : undefined,
-      deformity: d.hasDeformity ? d.deformity : undefined,
-      complaint: d.complaint || undefined,
-      mediclaim: d.mediclaim,
-      insuranceCompany: d.mediclaim ? d.insuranceCompany : undefined,
-      policyNumber: d.mediclaim ? d.policyNumber : undefined,
-      pastOperations: d.hasPastOps ? d.pastOperations : undefined,
-      ward: d.type === "IPD" ? d.ward || undefined : undefined,
-      wardNumber: d.type === "IPD" ? d.wardNumber || undefined : undefined,
-      relativeName: withFullDemographics ? d.relativeName : undefined,
-      relation: withFullDemographics ? d.relation : undefined,
-      relativePhone: withFullDemographics ? d.relativePhone : undefined,
-      relativeAddress: withFullDemographics ? d.relativeAddress : undefined,
-      maritalStatus: withFullDemographics ? d.maritalStatus : undefined,
-      child: withFullDemographics ? d.child : undefined,
-      occupation: withFullDemographics ? d.occupation : undefined,
-      religion: withFullDemographics ? d.religion : undefined,
-      isMlc: d.isMlc,
-      mlcDrIncharge: d.isMlc ? d.mlcDrIncharge : undefined,
-      mlcMedicalOfficer: d.isMlc ? d.mlcMedicalOfficer : undefined,
-      mlcDetailOfMatter: d.isMlc ? d.mlcDetailOfMatter : undefined,
-      mlcDateOfMatter: d.isMlc ? d.mlcDateOfMatter : undefined,
-      mlcTimeOfMatter: d.isMlc ? d.mlcTimeOfMatter : undefined,
-      mlcCauseOfMatter: d.isMlc ? d.mlcCauseOfMatter : undefined,
-      mlcPlaceOfMatter: d.isMlc ? d.mlcPlaceOfMatter : undefined,
-      mlcAnyOfHospitalisedPastHO: d.isMlc ? d.mlcAnyOfHospitalisedPastHO : undefined,
-      mlcCurrentCondition: d.isMlc ? d.mlcCurrentCondition : undefined,
-      mlcNameOfFiller: d.isMlc ? d.mlcNameOfFiller : undefined,
-      mlcFillerMoNo: d.isMlc ? d.mlcFillerMoNo : undefined,
-      mlcPermanentAddress: d.isMlc && !d.mlcPermanentSameAsCurrent ? d.mlcPermanentAddress : undefined,
-      mlcReportedPoliceStation: d.isMlc ? d.mlcReportedPoliceStation : undefined,
-      mlcPoliceInspectorName: d.isMlc ? d.mlcPoliceInspectorName : undefined,
-      mlcPoliceStationAddress: d.isMlc ? d.mlcPoliceStationAddress : undefined,
-      mlcFirOrCcNumber: d.isMlc ? d.mlcFirOrCcNumber : undefined,
-      isEmergency: d.isEmergency,
-      emergencyMedicalOfficer: d.isEmergency ? d.emergencyMedicalOfficer : undefined,
-      emergencyCondition: d.isEmergency ? d.emergencyCondition : undefined,
-      emergencyPastHistory: d.isEmergency ? d.emergencyPastHistory : undefined,
-      emergencyBp: d.isEmergency ? d.emergencyBp : undefined,
-      emergencyPulse: d.isEmergency ? d.emergencyPulse : undefined,
-      emergencySpo2: d.isEmergency ? d.emergencySpo2 : undefined,
-      emergencyTemp: d.isEmergency ? d.emergencyTemp : undefined,
-      emergencyRr: d.isEmergency ? d.emergencyRr : undefined,
-      emergencyInvestigations: d.isEmergency ? d.emergencyInvestigations : undefined,
-      emergencyDoctorsNote: d.isEmergency ? d.emergencyDoctorsNote : undefined,
-      emergencyStateInjection: d.isEmergency ? d.emergencyStateInjection : undefined,
-      emergencyNote: d.isEmergency ? d.emergencyNote : undefined,
-    });
-    if (d.type === "IPD") {
-      setConsentPatient(patient);
-      toast.success(`IPD patient created — please complete consent form`);
-    } else {
-      setReceipt(patient);
-      toast.success(`Registered — ${patient.code}`);
+
+    setIsSubmitting(true);
+    try {
+      const withFullDemographics = d.type === "IPD" || d.isMlc || d.isEmergency;
+      const patient = await receptionService.registerPatient({
+        name: d.name,
+        phone: d.phone,
+        age: Number(d.age),
+        gender: d.gender,
+        weight: d.weight ? Number(d.weight) : undefined,
+        height: d.height ? Number(d.height) : undefined,
+        caste: d.caste || undefined,
+        addressLine: d.addressLine,
+        state: d.state,
+        city: d.city,
+        pincode: d.pincode,
+        type: d.type === "FollowUp" ? "OPD" : d.type,
+        department: d.department, doctor: d.doctor,
+        opdCharge: db.charges.find((c) => c.id === d.opdChargeId)?.amount ?? 0,
+        allergy: d.hasAllergy ? d.allergy : undefined,
+        deformity: d.hasDeformity ? d.deformity : undefined,
+        complaint: d.complaint || undefined,
+        mediclaim: d.mediclaim,
+        insuranceCompany: d.mediclaim ? d.insuranceCompany : undefined,
+        policyNumber: d.mediclaim ? d.policyNumber : undefined,
+        pastOperations: d.hasPastOps ? d.pastOperations : undefined,
+        ward: d.type === "IPD" ? d.ward || undefined : undefined,
+        wardNumber: d.type === "IPD" ? d.wardNumber || undefined : undefined,
+        relativeName: withFullDemographics ? d.relativeName : undefined,
+        relation: withFullDemographics ? d.relation : undefined,
+        relativePhone: withFullDemographics ? d.relativePhone : undefined,
+        relativeAddress: withFullDemographics ? d.relativeAddress : undefined,
+        maritalStatus: withFullDemographics ? d.maritalStatus : undefined,
+        child: withFullDemographics ? d.child : undefined,
+        occupation: withFullDemographics ? d.occupation : undefined,
+        religion: withFullDemographics ? d.religion : undefined,
+        isMlc: d.isMlc,
+        mlcDrIncharge: d.isMlc ? d.mlcDrIncharge : undefined,
+        mlcMedicalOfficer: d.isMlc ? (d.mlcMedicalOfficer || d.emergencyMedicalOfficer) : undefined,
+        mlcDetailOfMatter: d.isMlc ? d.mlcDetailOfMatter : undefined,
+        mlcDateOfMatter: d.isMlc ? d.mlcDateOfMatter : undefined,
+        mlcTimeOfMatter: d.isMlc ? d.mlcTimeOfMatter : undefined,
+        mlcCauseOfMatter: d.isMlc ? d.mlcCauseOfMatter : undefined,
+        mlcPlaceOfMatter: d.isMlc ? d.mlcPlaceOfMatter : undefined,
+        mlcAnyOfHospitalisedPastHO: d.isMlc ? (d.mlcAnyOfHospitalisedPastHO || d.emergencyPastHistory) : undefined,
+        mlcCurrentCondition: d.isMlc ? d.mlcCurrentCondition : undefined,
+        mlcNameOfFiller: d.isMlc ? d.mlcNameOfFiller : undefined,
+        mlcFillerMoNo: d.isMlc ? d.mlcFillerMoNo : undefined,
+        mlcPermanentAddress: d.isMlc && !d.mlcPermanentSameAsCurrent ? d.mlcPermanentAddress : undefined,
+        mlcReportedPoliceStation: d.isMlc ? d.mlcReportedPoliceStation : undefined,
+        mlcPoliceInspectorName: d.isMlc ? d.mlcPoliceInspectorName : undefined,
+        mlcPoliceStationAddress: d.isMlc ? d.mlcPoliceStationAddress : undefined,
+        mlcFirOrCcNumber: d.isMlc ? d.mlcFirOrCcNumber : undefined,
+        isEmergency: d.isEmergency,
+        emergencyMedicalOfficer: d.isEmergency ? (d.emergencyMedicalOfficer || d.mlcMedicalOfficer) : undefined,
+        emergencyCondition: d.isEmergency ? d.emergencyCondition : undefined,
+        emergencyPastHistory: d.isEmergency ? (d.emergencyPastHistory || d.mlcAnyOfHospitalisedPastHO) : undefined,
+        emergencyInvestigations: d.isEmergency ? d.emergencyInvestigations : undefined,
+        emergencyDoctorsNote: d.isEmergency ? d.emergencyDoctorsNote : undefined,
+        emergencyStateInjection: d.isEmergency ? d.emergencyStateInjection : undefined,
+        emergencyNote: d.isEmergency ? d.emergencyNote : undefined,
+        isSurgery: d.isSurgery,
+        surgeryType: d.isSurgery ? d.surgeryType : undefined,
+        surgeryRiskNote: d.isSurgery ? d.surgeryRiskNote : undefined,
+        surgeryPreOpStatus: d.isSurgery ? d.surgeryPreOpStatus : undefined,
+        surgeryPostOpStatus: d.isSurgery ? d.surgeryPostOpStatus : undefined,
+        surgeryPastHistory: d.isSurgery ? d.surgeryPastHistory : undefined,
+        isIcu: d.type === "IPD" ? d.isIcu : false,
+      });
+      if (d.type === "IPD") {
+        setConsentPatient(patient);
+        toast.success(`IPD patient created — please complete consent form`);
+      } else {
+        setReceipt(patient);
+        toast.success(`Registered — ${patient.code}`);
+      }
+      setD({ ...initial, department: d.department });
+      setSearchQuery("");
+      setSearchResults([]);
+      setSelectedIndex(-1);
+    } catch (err: any) {
+      console.error("Failed to register patient:", err);
+      toast.error(err?.message || "Failed to register patient. Please check backend connection.");
+    } finally {
+      setIsSubmitting(false);
     }
-    setD({ ...initial, department: d.department });
-    setSearchQuery("");
-    setSearchResults([]);
-    setSelectedIndex(-1);
   };
 
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -313,13 +403,13 @@ function ReceptionPage() {
         religion: patientData.religion || "",
         isMlc: !!patientData.isMlc,
         mlcDrIncharge: patientData.mlcDrIncharge || "",
-        mlcMedicalOfficer: patientData.mlcMedicalOfficer || "",
+        mlcMedicalOfficer: patientData.mlcMedicalOfficer || patientData.emergencyMedicalOfficer || "",
         mlcDetailOfMatter: patientData.mlcDetailOfMatter || "",
         mlcDateOfMatter: patientData.mlcDateOfMatter || "",
         mlcTimeOfMatter: patientData.mlcTimeOfMatter || "",
         mlcCauseOfMatter: patientData.mlcCauseOfMatter || "",
         mlcPlaceOfMatter: patientData.mlcPlaceOfMatter || "",
-        mlcAnyOfHospitalisedPastHO: patientData.mlcAnyOfHospitalisedPastHO || "",
+        mlcAnyOfHospitalisedPastHO: patientData.mlcAnyOfHospitalisedPastHO || patientData.emergencyPastHistory || "",
         mlcCurrentCondition: patientData.mlcCurrentCondition || "",
         mlcNameOfFiller: patientData.mlcNameOfFiller || "",
         mlcFillerMoNo: patientData.mlcFillerMoNo || "",
@@ -330,14 +420,9 @@ function ReceptionPage() {
         mlcPoliceStationAddress: patientData.mlcPoliceStationAddress || "",
         mlcFirOrCcNumber: patientData.mlcFirOrCcNumber || "",
         isEmergency: !!patientData.isEmergency,
-        emergencyMedicalOfficer: patientData.emergencyMedicalOfficer || "",
+        emergencyMedicalOfficer: patientData.emergencyMedicalOfficer || patientData.mlcMedicalOfficer || "",
         emergencyCondition: patientData.emergencyCondition || "",
-        emergencyPastHistory: patientData.emergencyPastHistory || "",
-        emergencyBp: patientData.emergencyBp || "",
-        emergencyPulse: patientData.emergencyPulse || "",
-        emergencySpo2: patientData.emergencySpo2 || "",
-        emergencyTemp: patientData.emergencyTemp || "",
-        emergencyRr: patientData.emergencyRr || "",
+        emergencyPastHistory: patientData.emergencyPastHistory || patientData.mlcAnyOfHospitalisedPastHO || "",
         emergencyInvestigations: patientData.emergencyInvestigations || "",
         emergencyDoctorsNote: patientData.emergencyDoctorsNote || "",
         emergencyStateInjection: patientData.emergencyStateInjection || "",
@@ -406,14 +491,23 @@ function ReceptionPage() {
           }
         }}
       >
-        <TabsList className="mb-4">
-          <TabsTrigger value="OPD">OPD Registration</TabsTrigger>
-          <TabsTrigger value="IPD">IPD Registration</TabsTrigger>
-          <TabsTrigger value="FollowUp">Follow-up Registration</TabsTrigger>
+        <TabsList className="grid grid-cols-3 w-full h-auto p-1 mb-4 bg-muted/80">
+          <TabsTrigger value="OPD" className="text-xs sm:text-sm py-2 px-1 data-[state=active]:font-semibold">
+            <span className="sm:hidden">OPD</span>
+            <span className="hidden sm:inline">OPD Registration</span>
+          </TabsTrigger>
+          <TabsTrigger value="IPD" className="text-xs sm:text-sm py-2 px-1 data-[state=active]:font-semibold">
+            <span className="sm:hidden">IPD</span>
+            <span className="hidden sm:inline">IPD Registration</span>
+          </TabsTrigger>
+          <TabsTrigger value="FollowUp" className="text-xs sm:text-sm py-2 px-1 data-[state=active]:font-semibold">
+            <span className="sm:hidden">Follow-up</span>
+            <span className="hidden sm:inline">Follow-up Registration</span>
+          </TabsTrigger>
         </TabsList>
 
         <Card>
-          <CardContent className="p-6 space-y-8">
+          <CardContent className="p-4 sm:p-6 space-y-6 sm:space-y-8">
             {d.type === "FollowUp" && (
               <Section title="Search Patient">
                 <div className="relative max-w-sm">
@@ -552,12 +646,12 @@ function ReceptionPage() {
                     <Select value={d.opdChargeId} onValueChange={(v) => set("opdChargeId", v)}>
                       <SelectTrigger><SelectValue placeholder="Select charge" /></SelectTrigger>
                       <SelectContent>
-                        {db.charges.map((c) => (
+                        {chargesForReception.map((c: Charge) => (
                           <SelectItem key={c.id} value={c.id}>
                             {c.name} (₹{c.amount})
                           </SelectItem>
                         ))}
-                        {db.charges.length === 0 && <SelectItem value="__none" disabled>No charges available</SelectItem>}
+                        {chargesForReception.length === 0 && <SelectItem value="__none" disabled>No reception charges available</SelectItem>}
                       </SelectContent>
                     </Select>
                   </Field>
@@ -763,6 +857,90 @@ function ReceptionPage() {
               )}
             </Section>
 
+            {d.type === "IPD" && (
+              <Section title="Surgery / Operation Case">
+                <div className="flex items-center gap-2 mb-4">
+                  <Checkbox
+                    id="isSurgery"
+                    checked={d.isSurgery}
+                    onCheckedChange={(v) => set("isSurgery", !!v)}
+                  />
+                  <Label htmlFor="isSurgery" className="font-semibold text-indigo-600 dark:text-indigo-400 cursor-pointer">
+                    Is this a Surgery / Operation Case?
+                  </Label>
+                </div>
+                {d.isSurgery && (
+                  <div className="space-y-5 border border-indigo-500/30 p-4 rounded-lg bg-indigo-500/5">
+                    <Group title="Surgery / Operation Details">
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        <Field label="TYPE OF OPERATION">
+                          <Input
+                            value={d.surgeryType}
+                            onChange={(e) => set("surgeryType", e.target.value)}
+                            placeholder="e.g. Laparoscopic Appendectomy"
+                          />
+                        </Field>
+                        <Field label="ANY OF SURGICAL OR RISKY PAST H/O">
+                          <Input
+                            value={d.surgeryPastHistory || d.emergencyPastHistory || ""}
+                            onChange={(e) => set("surgeryPastHistory", e.target.value)}
+                            placeholder="Past surgical or risky history..."
+                          />
+                        </Field>
+                        <Field label="NOTE ABOUT RISK" className="sm:col-span-2">
+                          <Textarea
+                            rows={2}
+                            value={d.surgeryRiskNote}
+                            onChange={(e) => set("surgeryRiskNote", e.target.value)}
+                            placeholder="Clinical note about surgical risk..."
+                          />
+                        </Field>
+                        <Field label="PRE OPERATIVE STATUS" className="sm:col-span-2">
+                          <Textarea
+                            rows={2}
+                            value={d.surgeryPreOpStatus}
+                            onChange={(e) => set("surgeryPreOpStatus", e.target.value)}
+                            placeholder="Pre-operative condition / status..."
+                          />
+                        </Field>
+                      </div>
+                    </Group>
+
+                    <Group title="Mediclaim / Insurance">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Checkbox
+                          id="surgeryMediclaim"
+                          checked={d.mediclaim}
+                          onCheckedChange={(v) => set("mediclaim", !!v)}
+                        />
+                        <Label htmlFor="surgeryMediclaim" className="font-medium cursor-pointer">
+                          Mediclaim – {d.mediclaim ? "YES" : "NO"}
+                        </Label>
+                      </div>
+                      {d.mediclaim && (
+                        <div className="grid sm:grid-cols-2 gap-4 mt-2">
+                          <Field label="INSURANCE COMPANY">
+                            <Input
+                              value={d.insuranceCompany}
+                              onChange={(e) => set("insuranceCompany", e.target.value)}
+                              placeholder="e.g. Star Health, HDFC Ergo..."
+                            />
+                          </Field>
+                          <Field label="POLICY NUMBER">
+                            <Input
+                              value={d.policyNumber}
+                              onChange={(e) => set("policyNumber", e.target.value)}
+                              placeholder="Policy or TPA Card number..."
+                            />
+                          </Field>
+                        </div>
+                      )}
+                    </Group>
+                  </div>
+                )}
+              </Section>
+            )}
+
             <Section title="Emergency Case">
               <div className="flex items-center gap-2 mb-4">
                 <Checkbox id="isEmergency" checked={d.isEmergency} onCheckedChange={(v) => set("isEmergency", !!v)} />
@@ -786,24 +964,47 @@ function ReceptionPage() {
 
                   <Group title="Attending Medical Staff">
                     <div className="grid sm:grid-cols-2 gap-4">
-                      <Field label="Medical Officer"><Input value={d.emergencyMedicalOfficer} onChange={(e) => set("emergencyMedicalOfficer", e.target.value)} placeholder="e.g. Dr. Patel" /></Field>
+                      <Field label="Medical Officer">
+                        <Select
+                          value={d.emergencyMedicalOfficer || d.mlcMedicalOfficer || ""}
+                          onValueChange={(v) => {
+                            set("emergencyMedicalOfficer", v);
+                            set("mlcMedicalOfficer", v);
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Medical Officer" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {medicalOfficers.length === 0 ? (
+                              <SelectItem value="__none" disabled>
+                                No medical officers configured in Roles &amp; Permissions
+                              </SelectItem>
+                            ) : (
+                              medicalOfficers.map((emp) => (
+                                <SelectItem key={emp.id} value={emp.name}>
+                                  {emp.name} ({emp.role})
+                                </SelectItem>
+                              ))
+                            )}
+                            {(d.emergencyMedicalOfficer || d.mlcMedicalOfficer) &&
+                              !medicalOfficers.some(
+                                (m) => m.name === (d.emergencyMedicalOfficer || d.mlcMedicalOfficer)
+                              ) && (
+                                <SelectItem value={(d.emergencyMedicalOfficer || d.mlcMedicalOfficer)!}>
+                                  {d.emergencyMedicalOfficer || d.mlcMedicalOfficer} (Current)
+                                </SelectItem>
+                              )}
+                          </SelectContent>
+                        </Select>
+                      </Field>
                     </div>
                   </Group>
 
                   <Group title="Clinical Assessment">
                     <div className="grid sm:grid-cols-2 gap-4">
                       <Field label="Health Condition"><Textarea rows={2} value={d.emergencyCondition} onChange={(e) => set("emergencyCondition", e.target.value)} placeholder="Current health condition..." /></Field>
-                      <Field label="Any of Hospitalised Past H/O"><Textarea rows={2} value={d.emergencyPastHistory} onChange={(e) => set("emergencyPastHistory", e.target.value)} placeholder="Past hospitalization history..." /></Field>
-                    </div>
-                  </Group>
-
-                  <Group title="Vitals">
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                      <Field label="B.P."><Input value={d.emergencyBp} onChange={(e) => set("emergencyBp", e.target.value)} placeholder="120/80" /></Field>
-                      <Field label="PULSE"><Input value={d.emergencyPulse} onChange={(e) => set("emergencyPulse", e.target.value)} placeholder="72" /></Field>
-                      <Field label="SPo2"><Input value={d.emergencySpo2} onChange={(e) => set("emergencySpo2", e.target.value)} placeholder="98%" /></Field>
-                      <Field label="TEM&quot;"><Input value={d.emergencyTemp} onChange={(e) => set("emergencyTemp", e.target.value)} placeholder="98.6" /></Field>
-                      <Field label="R.R."><Input value={d.emergencyRr} onChange={(e) => set("emergencyRr", e.target.value)} placeholder="18" /></Field>
+                      <Field label="Any of Hospitalised Past H/O"><Textarea rows={2} value={d.emergencyPastHistory || d.mlcAnyOfHospitalisedPastHO || ""} onChange={(e) => set("emergencyPastHistory", e.target.value)} placeholder="Past hospitalization history..." /></Field>
                     </div>
                   </Group>
 
@@ -876,7 +1077,7 @@ function ReceptionPage() {
                       <Field label="Time of Matter"><Input type="time" value={d.mlcTimeOfMatter} onChange={(e) => set("mlcTimeOfMatter", e.target.value)} /></Field>
                       <Field label="Cause of Matter"><Input value={d.mlcCauseOfMatter} onChange={(e) => set("mlcCauseOfMatter", e.target.value)} /></Field>
                       <Field label="Place of Matter"><Input value={d.mlcPlaceOfMatter} onChange={(e) => set("mlcPlaceOfMatter", e.target.value)} /></Field>
-                      <Field label="Any Hospitalized Past H/O" className="lg:col-span-3"><Input value={d.mlcAnyOfHospitalisedPastHO} onChange={(e) => set("mlcAnyOfHospitalisedPastHO", e.target.value)} /></Field>
+                      <Field label="Any Hospitalized Past H/O" className="lg:col-span-3"><Input value={d.mlcAnyOfHospitalisedPastHO || d.emergencyPastHistory || ""} onChange={(e) => set("mlcAnyOfHospitalisedPastHO", e.target.value)} /></Field>
                       <Field label="Detail of Matter" className="lg:col-span-3"><Textarea rows={2} value={d.mlcDetailOfMatter} onChange={(e) => set("mlcDetailOfMatter", e.target.value)} /></Field>
                       <Field label="Current Condition" className="lg:col-span-3"><Textarea rows={2} value={d.mlcCurrentCondition} onChange={(e) => set("mlcCurrentCondition", e.target.value)} /></Field>
                     </div>
@@ -894,7 +1095,40 @@ function ReceptionPage() {
                   <Group title="Attending officials & filler">
                     <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       <Field label="Dr. Incharge"><Input value={d.mlcDrIncharge} onChange={(e) => set("mlcDrIncharge", e.target.value)} /></Field>
-                      <Field label="Medical Officer"><Input value={d.mlcMedicalOfficer} onChange={(e) => set("mlcMedicalOfficer", e.target.value)} /></Field>
+                      <Field label="Medical Officer">
+                        <Select
+                          value={d.mlcMedicalOfficer || d.emergencyMedicalOfficer || ""}
+                          onValueChange={(v) => {
+                            set("mlcMedicalOfficer", v);
+                            set("emergencyMedicalOfficer", v);
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select Medical Officer" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {medicalOfficers.length === 0 ? (
+                              <SelectItem value="__none" disabled>
+                                No medical officers configured in Roles &amp; Permissions
+                              </SelectItem>
+                            ) : (
+                              medicalOfficers.map((emp) => (
+                                <SelectItem key={emp.id} value={emp.name}>
+                                  {emp.name} ({emp.role})
+                                </SelectItem>
+                              ))
+                            )}
+                            {(d.mlcMedicalOfficer || d.emergencyMedicalOfficer) &&
+                              !medicalOfficers.some(
+                                (m) => m.name === (d.mlcMedicalOfficer || d.emergencyMedicalOfficer)
+                              ) && (
+                                <SelectItem value={(d.mlcMedicalOfficer || d.emergencyMedicalOfficer)!}>
+                                  {d.mlcMedicalOfficer || d.emergencyMedicalOfficer} (Current)
+                                </SelectItem>
+                              )}
+                          </SelectContent>
+                        </Select>
+                      </Field>
                       <Field label="Name of Filler"><Input value={d.mlcNameOfFiller} onChange={(e) => set("mlcNameOfFiller", e.target.value)} /></Field>
                       <Field label="Filler Mo No."><Input value={d.mlcFillerMoNo} maxLength={10} onChange={(e) => set("mlcFillerMoNo", e.target.value.replace(/\D/g, ''))} /></Field>
                     </div>
@@ -904,17 +1138,34 @@ function ReceptionPage() {
             </Section>
 
             <div className="flex justify-end gap-2 pt-2 border-t">
-              <Button variant="outline" onClick={() => setD(initial)}>
+              <Button
+                variant="outline"
+                onClick={() => setD(initial)}
+                disabled={isSubmitting}
+              >
                 Reset
               </Button>
-              <Button onClick={submit}>Register patient</Button>
+              <Button
+                onClick={submit}
+                disabled={isSubmitting}
+                className="min-w-[145px]"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Registering...
+                  </>
+                ) : (
+                  "Register patient"
+                )}
+              </Button>
             </div>
           </CardContent>
         </Card>
       </Tabs>
 
       <Dialog open={!!receipt} onOpenChange={(v) => !v && setReceipt(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[96vw] sm:max-w-3xl max-h-[92vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Registration Receipt</DialogTitle>
           </DialogHeader>
@@ -996,26 +1247,18 @@ function Receipt({ patient, settings }: { patient: Patient; settings?: any }) {
   return (
     <div className="mx-auto w-full max-w-[760px] bg-white p-5 font-sans text-[11px] font-bold leading-relaxed text-[#111] print:max-w-none print:p-0">
       {/* Header */}
-      <div className="relative mb-6 mt-2 flex h-[110px] items-center overflow-visible rounded-[36px] bg-[#4b4b4b] print:mb-5">
-        {/* <div className="box-border flex h-full w-[calc(100%-145px)] items-center overflow-hidden rounded-l-[36px] bg-white p-2">
-        <img
-          src={logoSrc}
-          alt="LifeCare Hospital"
-          className="h-full w-full object-contain object-left"
-        />
-      </div> */}
-
-        <div className="box-border flex h-full w-[calc(100%-130px)] min-w-0 items-center justify-center overflow-hidden rounded-l-[36px] bg-white p-1">
+      <div className="relative mb-6 mt-2 flex h-[120px] items-center overflow-visible rounded-[40px] bg-[#4b4b4b] print:mb-5">
+        <div className="box-border flex h-full w-[calc(100%-180px)] min-w-0 items-center justify-center overflow-hidden rounded-l-[40px] bg-white p-0">
           <img
             src={logoSrc}
             alt="LifeCare Hospital"
-            className="block h-full w-full object-inherit object-center"
+            className="block h-full w-full object-fill object-center rounded-l-[40px]"
           />
         </div>
 
-        <div className="absolute right-3 top-1/2 z-10 flex h-[125px] w-[125px] -translate-y-1/2 flex-col items-center justify-center rounded-full border-[5px] border-white bg-white text-center shadow-md">
-          <span className="text-[11px] font-semibold leading-5 text-[#e53e3e]">Help Line :</span>
-          <span className="text-[12px] font-bold leading-5 text-[#e53e3e]">
+        <div className="absolute right-4 top-1/2 z-10 flex h-[145px] w-[145px] -translate-y-1/2 flex-col items-center justify-center rounded-full border-[5px] border-white bg-white text-center shadow-md">
+          <span className="text-[13px] font-semibold leading-5 text-[#e53e3e]">Help Line :</span>
+          <span className="text-[17px] font-bold leading-5 text-[#e53e3e]">
             {settings?.helpline || "7016124362"}
           </span>
         </div>
@@ -1175,10 +1418,14 @@ function Receipt({ patient, settings }: { patient: Patient; settings?: any }) {
   );
 }
 
-const handlePrintReceipt = async (patient: Patient, settings: any) => {
+export const handlePrintReceipt = async (patient: Patient, settings: any) => {
   // ── 1. Resolve logo and convert to embedded base64 ──
-  const rawLogoSrc = '/lifecare-logo.jpg';
-  const absoluteLogoUrl = `${window.location.origin}${rawLogoSrc}`;
+  const rawLogo = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg'
+    ? settings.logoUrl
+    : '/lifecare-logo.jpg';
+  const absoluteLogoUrl = rawLogo.startsWith('http') || rawLogo.startsWith('data:')
+    ? rawLogo
+    : `${window.location.origin}${rawLogo.startsWith('/') ? '' : '/'}${rawLogo}`;
 
   let logoSrc = absoluteLogoUrl;
   try {
@@ -1206,125 +1453,403 @@ const handlePrintReceipt = async (patient: Patient, settings: any) => {
     words = numberToWords
       .toWords(Math.round(patient.opdCharge || 0))
       .replace(/\b\w/g, (c) => c.toUpperCase());
-    words = numberToWords
-      .toWords(Math.round(patient.opdCharge || 0))
-      .replace(/\b\w/g, (c) => c.toUpperCase());
   } catch {
     words = `${patient.opdCharge}`;
   }
-  const dt = new Date(patient.registeredAt);
+  const dt = new Date(patient.registeredAt || Date.now());
 
-  // ── 3. Build self-contained receipt HTML ──
+  // ── 3. Build self-contained receipt HTML in full A4 ──
   const html = `<!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8"/>
-<base href="${window.location.origin}/"/>
-<title>Receipt - ${patient.code}</title>
-<style>
-@page{size:80mm auto;margin:0}
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{width:80mm;max-width:80mm;margin:0;padding:0;background:#fff}
-body{font-family:'Courier New',Courier,monospace;color:#000;
--webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;
-line-height:1.35;font-size:11px;padding:3mm}
-.pos-header{text-align:center;padding-bottom:0;margin-bottom:0}
-.header-row{display:flex;align-items:center;justify-content:space-between;width:100%;margin-bottom:2.5mm}
-.logo-col{flex:0 0 68%;max-width:68%;display:flex;align-items:center;justify-content:center}
-.pos-logo{width:100%;max-width:100%;height:auto;object-fit:contain;display:block}
-.header-divider{width:1px;height:38px;background:#ccc;flex-shrink:0;margin:0 4px}
-.hl-col{flex:0 0 28%;max-width:28%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
-.hl-l{font-size:9.5px;line-height:1.2;text-align:center;white-space:nowrap;color:#e53e3e}
-.hl-n{font-size:15px;font-weight:bold;line-height:1.2;text-align:center;color:#e53e3e}
-.addr{font-size:8px;text-transform:uppercase;letter-spacing:.3px}
-.dash{border:0;border-top:1px dashed #000;margin:4px 0}
-.dbl{border:0;border-top:2px double #000;margin:4px 0}
-.stars{text-align:center;font-size:9px;letter-spacing:2px;margin:3px 0}
-.title{text-align:center;font-size:12px;font-weight:bold;text-transform:uppercase;
-letter-spacing:1px;padding:3px 0}
-.meta{display:flex;justify-content:space-between;font-size:9px;padding:1px 0}
-.row{display:flex;justify-content:space-between;padding:1.5px 0;font-size:10px}
-.row .l{flex-shrink:0}
-.row .v{font-weight:bold;text-align:right;word-break:break-word;max-width:55%}
-.ih{display:flex;justify-content:space-between;font-weight:bold;font-size:9px;
-padding:2px 0;text-transform:uppercase}
-.ir{padding:3px 0;font-size:10px}
-.in{font-weight:bold}
-.id{font-size:8px;padding-left:8px}
-.ia{display:flex;justify-content:space-between;padding-left:8px;font-size:10px}
-.tr{display:flex;justify-content:space-between;font-size:11px;font-weight:bold;padding:2px 0}
-.gt{font-size:13px;font-weight:bold}
-.pr{display:flex;justify-content:space-between;font-size:11px;font-weight:bold;padding:1px 0}
-.aw{font-size:8px;font-style:italic;text-align:center;padding:3px 0}
-.aw strong{font-style:normal}
-.ft{text-align:center;font-size:8px;padding-top:4px}
-.ft .ty{font-size:11px;font-weight:bold;margin-bottom:2px}
-.ft .gw{font-size:9px;margin-bottom:3px}
-.sb{display:inline-block;border:1.5px solid #000;padding:1px 10px;
-font-size:10px;font-weight:bold;letter-spacing:2px;margin:2px auto}
-@media print{
-  html,body{width:80mm;max-width:80mm;margin:0;padding:0;background:#fff}
-  body{padding:3mm}
-}
-</style>
+  <meta charset="utf-8"/>
+  <title>Receipt - ${patient.code}</title>
+  <style>
+    @page { margin: 0; size: A4; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #111;
+      line-height: 1.35;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .watermark {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      -webkit-transform: translate(-50%, -50%);
+      opacity: 0.13;
+      z-index: 0;
+      pointer-events: none;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .watermark img {
+      width: 88%;
+      max-width: 780px;
+      object-fit: contain;
+      transform: rotate(-45deg);
+      -webkit-transform: rotate(-45deg);
+    }
+    
+    .page-container {
+      box-sizing: border-box;
+      width: 100%;
+      max-width: 210mm;
+      height: 295mm;
+      min-height: 295mm;
+      max-height: 295mm;
+      margin: 0 auto;
+      padding: 16px 28px 20px 28px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      z-index: 1;
+      background: transparent;
+      overflow: hidden;
+    }
+
+    .top-section {
+      background-color: #4b4b4b !important;
+      margin: 0 0 12px 0;
+      border-radius: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 120px;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .logo-container {
+      background-color: white !important;
+      height: 100%;
+      width: calc(100% - 180px);
+      border-radius: 40px 0 0 40px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    .logo-container img { width: 100%; height: 100%; border-radius: 40px 0 0 40px; object-fit: fill; }
+    .helpline-circle {
+      background-color: white !important;
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    .helpline-circle span { color: #e53e3e; }
+    .helpline-title { font-size: 14px; margin-bottom: 4px; }
+    .helpline-number { font-size: 18px; font-weight: bold; }
+
+    .address-bar {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #333;
+      margin-bottom: 12px;
+    }
+
+    .title-area {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 1.5px solid #444;
+      padding-bottom: 4px;
+      margin-bottom: 12px;
+    }
+    .form-title {
+      color: #ff6b6b;
+      text-decoration: underline;
+      font-size: 14px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .date-time {
+      text-decoration: underline;
+      color: #1e3a8a;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .main-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .form-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+    .field-label {
+      text-transform: uppercase;
+      white-space: nowrap;
+      color: #1e3a8a;
+      font-size: 11.5px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+    }
+    .field-value {
+      flex: 1;
+      border-bottom: 1.5px dotted #333;
+      color: #111;
+      padding: 1px 4px;
+      min-width: 40px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .charges-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      margin-bottom: 12px;
+      border: 1.5px solid #333;
+    }
+    .charges-table th {
+      background-color: #4b4b4b !important;
+      color: #fff;
+      padding: 6px 10px;
+      font-size: 11.5px;
+      font-weight: 800;
+      border: 1px solid #333;
+      text-align: left;
+    }
+    .charges-table th.text-right { text-align: right; }
+    .charges-table th.text-center { text-align: center; }
+    .charges-table td {
+      border: 1px solid #aaa;
+      padding: 8px 10px;
+      font-size: 12px;
+      vertical-align: top;
+    }
+    .charges-table tr.summary-row {
+      background-color: #f8fafc;
+    }
+
+    .paid-badge {
+      display: inline-block;
+      border: 2px solid #2e7d32;
+      color: #2e7d32;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      padding: 4px 16px;
+      text-transform: uppercase;
+      border-radius: 4px;
+    }
+
+    .footer-msg {
+      text-align: center;
+      margin-top: 15px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #333;
+    }
+
+    .sign-section {
+      margin-top: 20px;
+      padding-top: 25px;
+      flex-shrink: 0;
+    }
+    .sign-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 40px;
+    }
+    .sign-cell {
+      flex: 1;
+      border-top: 1.5px solid #000;
+      padding-top: 5px;
+      text-transform: uppercase;
+      font-size: 11px;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+
+    @media print {
+      html, body {
+        width: 210mm;
+        height: 297mm;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+      .page-container {
+        width: 210mm;
+        height: 295mm;
+        min-height: 295mm;
+        max-height: 295mm;
+        page-break-after: avoid;
+        page-break-inside: avoid;
+        overflow: hidden;
+      }
+    }
+  </style>
 </head>
 <body>
-<div class="pos-header">
-<div class="header-row">
-<div class="logo-col">
-<img src="${logoSrc}" alt="Hospital Logo" class="pos-logo" onerror="this.style.display='none';var fb=document.getElementById('logo-fallback');if(fb)fb.style.display='block';"/>
-<div id="logo-fallback" style="display:none;font-weight:bold;font-size:11px;text-align:center;line-height:1.2;">LIFECARE MULTISPECIALIST HOSPITAL</div>
-</div>
-<div class="header-divider"></div>
-<div class="hl-col">
-<span class="hl-l">Help Line :</span>
-<span class="hl-n">${settings?.helpline || '1234'}</span>
-</div>
-</div>
-<div class="addr">${settings?.address || 'BHAVNATH PARK-2, HARIDHAVA MAIN ROAD, RAJKOT'}</div>
-</div>
-<hr class="dbl"/>
-<div class="title">RECEIPT</div>
-<hr class="dash"/>
-<div class="meta"><span>Receipt#: <strong>${patient.code}</strong></span><span>${dt.toLocaleDateString()}</span></div>
-<div class="meta"><span>Time: ${dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span><span>Type: <strong>${patient.type}</strong></span></div>
-<hr class="dash"/>
-<div class="row"><span class="l">PATIENT</span><span class="v">${patient.name}</span></div>
-<div class="row"><span class="l">AGE / SEX</span><span class="v">${patient.age} Y / ${patient.gender}</span></div>
-<div class="row"><span class="l">DOCTOR</span><span class="v">${patient.doctor || "-"}</span></div>
-<div class="row"><span class="l">DEPT</span><span class="v">${patient.department}</span></div>
-<div class="row"><span class="l">CITY / PH</span><span class="v">${patient.city || "-"} (${patient.phone || "-"})</span></div>
-<hr class="dbl"/>
-<div class="ih"><span>ITEM</span><span>AMOUNT</span></div>
-<hr class="dash"/>
-<div class="ir">
-<div class="in">1. Reg &amp; OPD Consultation</div>
-<div class="id">Dept: ${patient.department}</div>
-<div class="ia"><span>Consultation Fee</span><span style="font-weight:bold">Rs.${patient.opdCharge.toFixed(2)}</span></div>
-</div>
-<hr class="dash"/>
-<div class="tr"><span>SUBTOTAL</span><span>Rs.${patient.opdCharge.toFixed(2)}</span></div>
-<div class="tr gt"><span>TOTAL</span><span>Rs.${patient.opdCharge.toFixed(2)}</span></div>
-<hr class="dbl"/>
-<div class="pr"><span>PAID (CASH)</span><span>Rs.${patient.opdCharge.toFixed(2)}</span></div>
-<div class="pr"><span>BALANCE DUE</span><span>Rs.0.00</span></div>
-<hr class="dash"/>
-<div class="aw">Amount: <strong>Rupees ${words} Only</strong></div>
-<hr class="dash"/>
-<div style="text-align:center;padding:4px 0"><span class="sb">✓ PAID</span></div>
-<hr class="dash"/>
-<div class="ft">
-<div class="ty">THANK YOU!</div>
-<div class="gw">Get Well Soon 🙏</div>
-<div>This is a computer generated receipt</div>
-<div>No signature required</div>
-</div>
-<div class="stars">********************************</div>
+  <div class="watermark">
+    <img src="${logoSrc}" alt="Watermark" onerror="this.src='/lifecare-logo.jpg'" />
+  </div>
+  <div class="page-container">
+    <div>
+      <div class="top-section">
+        <div class="logo-container">
+          <img src="${logoSrc}" alt="Hospital Logo" onerror="this.src='/lifecare-logo.jpg'" />
+        </div>
+        <div class="helpline-circle">
+          <span class="helpline-title">Help Line :</span>
+          <span class="helpline-number">${settings?.helpline || '7016124362'}</span>
+        </div>
+      </div>
+
+      <div class="address-bar">
+        ${settings?.address || 'BHAVNATH PARK-2 , HARIDHAVA MAIN ROAD , RAJKOT'}
+      </div>
+
+      <div class="title-area">
+        <div class="form-title">Registration &amp; Consultation Receipt</div>
+        <div class="date-time">DATE: ${dt.toLocaleDateString('en-GB')} ${dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+      </div>
+
+      <div class="main-body">
+        <div class="form-row">
+          <span class="field-label">PATIENT FULL NAME -</span>
+          <span class="field-value">${patient.name}</span>
+          <span class="field-label">PATIENT CODE -</span>
+          <span class="field-value" style="flex: 0 0 130px;">${patient.code}</span>
+        </div>
+
+        <div class="form-row" style="display: flex;">
+          <span class="field-label">AGE / GENDER -</span>
+          <span class="field-value" style="flex: 1.5;">${patient.age} Y / ${patient.gender}</span>
+          <span class="field-label">VISIT TYPE -</span>
+          <span class="field-value" style="flex: 1;">${patient.type}</span>
+          <span class="field-label">PHONE -</span>
+          <span class="field-value" style="flex: 1.5;">${patient.phone || '-'}</span>
+        </div>
+
+        <div class="form-row" style="display: flex;">
+          <span class="field-label">DOCTOR -</span>
+          <span class="field-value" style="flex: 2;">${patient.doctor || '-'}</span>
+          <span class="field-label">DEPARTMENT -</span>
+          <span class="field-value" style="flex: 2;">${patient.department || '-'}</span>
+        </div>
+
+        <div class="form-row" style="display: flex;">
+          <span class="field-label">CITY -</span>
+          <span class="field-value" style="flex: 1;">${patient.city || '-'}</span>
+          <span class="field-label">ADDRESS -</span>
+          <span class="field-value" style="flex: 3;">${patient.addressLine || patient.city || '-'}</span>
+        </div>
+
+        <table class="charges-table">
+          <thead>
+            <tr>
+              <th class="text-center" style="width: 45px;">No.</th>
+              <th>Description / Particulars</th>
+              <th style="width: 140px;">Department</th>
+              <th class="text-right" style="width: 120px;">Amount (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-center">1</td>
+              <td>
+                <div style="font-weight: 800; color: #111;">Registration &amp; OPD Consultation Charge</div>
+                <div style="font-size: 10.5px; font-weight: normal; color: #555; margin-top: 2px;">Initial OPD patient visit &amp; consultation fee</div>
+              </td>
+              <td style="font-weight: 700;">${patient.department}</td>
+              <td class="text-right" style="font-weight: 800;">₹ ${(patient.opdCharge || 0).toFixed(2)}</td>
+            </tr>
+            <tr class="summary-row">
+              <td colspan="2" style="font-size: 11px;">
+                <span style="font-style: italic; color: #555;">Amount in Words:</span>
+                <strong style="color: #111;">Rupees ${words} Only</strong>
+              </td>
+              <td style="text-align: right; font-weight: 800;">
+                <div>TOTAL:</div>
+                <div style="color: #2e7d32; margin-top: 4px;">PAID:</div>
+              </td>
+              <td class="text-right" style="font-weight: 800;">
+                <div>₹ ${(patient.opdCharge || 0).toFixed(2)}</div>
+                <div style="color: #2e7d32; margin-top: 4px;">₹ ${(patient.opdCharge || 0).toFixed(2)}</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+          <div class="paid-badge">✓ PAID</div>
+          <div style="font-size: 11px; color: #555; font-style: italic;">
+            * Computer generated receipt. Valid without physical cash counter seal.
+          </div>
+        </div>
+
+        <div class="footer-msg">
+          <div>THANK YOU!</div>
+          <div style="margin-top: 2px; color: #1e3a8a;">Get Well Soon 🙏</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sign-section">
+      <div class="sign-row">
+        <div class="sign-cell">PATIENT / RELATIVE SIGN</div>
+        <div class="sign-cell">AUTHORIZED SIGNATORY / RECEPTION</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    var printed = false;
+    function doPrint() {
+      if (printed) return;
+      printed = true;
+      window.focus();
+      window.print();
+    }
+    if (document.readyState === 'complete') {
+      setTimeout(doPrint, 200);
+    } else {
+      window.addEventListener('load', function() {
+        setTimeout(doPrint, 200);
+      });
+      setTimeout(doPrint, 800);
+    }
+  </script>
 </body>
 </html>`;
 
   // ── 4. Print via hidden iframe ──
-  // Remove old iframe if any (clean state each time)
   const oldFrame = document.getElementById("receipt-print-frame");
   if (oldFrame) oldFrame.remove();
 
@@ -1339,31 +1864,6 @@ font-size:10px;font-weight:bold;letter-spacing:2px;margin:2px auto}
   iframeDoc.open();
   iframeDoc.write(html);
   iframeDoc.close();
-
-  // Wait for all images inside the iframe to finish loading before printing
-  await new Promise<void>((resolve) => {
-    const checkAndPrint = () => {
-      const imgs = iframeDoc.querySelectorAll("img");
-      const pending = Array.from(imgs).filter((img) => !img.complete);
-      if (pending.length === 0) {
-        resolve();
-        return;
-      }
-      let remaining = pending.length;
-      const done = () => { if (--remaining <= 0) resolve(); };
-      pending.forEach((img) => {
-        img.addEventListener("load", done, { once: true });
-        img.addEventListener("error", done, { once: true });
-      });
-    };
-    // Small delay to let the document parse
-    setTimeout(checkAndPrint, 50);
-  });
-
-  // Trigger print
-  setTimeout(() => {
-    iframe.contentWindow?.print();
-  }, 100);
 };
 
 export const handlePrintMlc = async (patient: Patient, settings: any) => {
@@ -1471,34 +1971,34 @@ export const handlePrintMlc = async (patient: Patient, settings: any) => {
 
           .top-section { 
             background-color: #4b4b4b !important; 
-            margin: 0 0 10px 0;
-            border-radius: 30px;
+            margin: 0 0 12px 0;
+            border-radius: 40px;
             display: flex; 
             align-items: center; 
             justify-content: space-between; 
-            height: 86px;
+            height: 120px;
             position: relative;
             flex-shrink: 0;
           }
           .logo-container { 
             background-color: white !important;
             height: 100%;
-            width: calc(100% - 130px);
-            border-radius: 30px 0 0 30px;
+            width: calc(100% - 180px);
+            border-radius: 40px 0 0 40px;
             display: flex;
             align-items: center;
             justify-content: flex-start;
             padding: 0;
             box-sizing: border-box;
           }
-          .logo-container img { width: 100%; height: 100%; border-radius: 30px 0 0 30px; object-fit: fill; }
+          .logo-container img { width: 100%; height: 100%; border-radius: 40px 0 0 40px; object-fit: fill; }
           .helpline-circle {
             background-color: white !important;
-            width: 104px;
-            height: 104px;
+            width: 150px;
+            height: 150px;
             border-radius: 50%;
             position: absolute;
-            right: 14px;
+            right: 20px;
             top: 50%;
             transform: translateY(-50%);
             display: flex;
@@ -1509,8 +2009,8 @@ export const handlePrintMlc = async (patient: Patient, settings: any) => {
             box-shadow: 0 4px 10px rgba(0,0,0,0.15);
           }
           .helpline-circle span { color: #e53e3e; }
-          .helpline-title { font-size: 10px; margin-bottom: 2px; }
-          .helpline-number { font-size: 13.5px; font-weight: bold; }
+          .helpline-title { font-size: 14px; margin-bottom: 4px; }
+          .helpline-number { font-size: 18px; font-weight: bold; }
           
           .main-body {
             flex: 1;
@@ -1913,34 +2413,34 @@ export const handlePrintEmergency = async (patient: Patient, settings: any) => {
 
           .top-section { 
             background-color: #4b4b4b !important; 
-            margin: 0 0 8px 0;
-            border-radius: 28px;
+            margin: 0 0 12px 0;
+            border-radius: 40px;
             display: flex; 
             align-items: center; 
             justify-content: space-between; 
-            height: 84px;
+            height: 120px;
             position: relative;
             flex-shrink: 0;
           }
           .logo-container { 
             background-color: white !important;
             height: 100%;
-            width: calc(100% - 130px);
-            border-radius: 28px 0 0 28px;
+            width: calc(100% - 180px);
+            border-radius: 40px 0 0 40px;
             display: flex;
             align-items: center;
             justify-content: flex-start;
             padding: 0;
             box-sizing: border-box;
           }
-          .logo-container img { width: 100%; height: 100%; border-radius: 28px 0 0 28px; object-fit: fill; }
+          .logo-container img { width: 100%; height: 100%; border-radius: 40px 0 0 40px; object-fit: fill; }
           .helpline-circle {
             background-color: white !important;
-            width: 100px;
-            height: 100px;
+            width: 150px;
+            height: 150px;
             border-radius: 50%;
             position: absolute;
-            right: 14px;
+            right: 20px;
             top: 50%;
             transform: translateY(-50%);
             display: flex;
@@ -1951,8 +2451,8 @@ export const handlePrintEmergency = async (patient: Patient, settings: any) => {
             box-shadow: 0 4px 10px rgba(0,0,0,0.15);
           }
           .helpline-circle span { color: #e53e3e; }
-          .helpline-title { font-size: 10px; margin-bottom: 2px; }
-          .helpline-number { font-size: 13px; font-weight: bold; }
+          .helpline-title { font-size: 14px; margin-bottom: 4px; }
+          .helpline-number { font-size: 18px; font-weight: bold; }
           
           .main-body {
             flex: 1;
@@ -2208,11 +2708,11 @@ export const handlePrintEmergency = async (patient: Patient, settings: any) => {
                 <tr>
                   <td style="vertical-align: top; padding: 4px;">
                     <table class="vitals-subtable">
-                      <tr><td class="v-label">B.P.</td><td class="v-val">${patient.emergencyBp || ''}</td></tr>
-                      <tr><td class="v-label">PULSE</td><td class="v-val">${patient.emergencyPulse || ''}</td></tr>
-                      <tr><td class="v-label">SPo2</td><td class="v-val">${patient.emergencySpo2 || ''}</td></tr>
-                      <tr><td class="v-label">TEM"</td><td class="v-val">${patient.emergencyTemp || ''}</td></tr>
-                      <tr><td class="v-label">R.R.</td><td class="v-val">${patient.emergencyRr || ''}</td></tr>
+                      <tr><td class="v-label">B.P.</td><td class="v-val"></td></tr>
+                      <tr><td class="v-label">PULSE</td><td class="v-val"></td></tr>
+                      <tr><td class="v-label">SPo2</td><td class="v-val"></td></tr>
+                      <tr><td class="v-label">TEM"</td><td class="v-val"></td></tr>
+                      <tr><td class="v-label">R.R.</td><td class="v-val"></td></tr>
                     </table>
                     <div style="margin-top: 4px; font-weight: 800; font-size: 10.5px; text-decoration: underline; color: #1e3a8a;">INVESTIGATIONS :</div>
                     <div class="cell-content">${patient.emergencyInvestigations || ''}</div>
@@ -2239,6 +2739,886 @@ export const handlePrintEmergency = async (patient: Patient, settings: any) => {
               <div class="sign-cell">MEDICAL OFFICER SIGN</div>
               <div class="sign-cell">PATIENT / RELATIVE SIGN</div>
             </div>
+          </div>
+        </div>
+
+        <script>
+          var printed = false;
+          function doPrint() {
+            if (printed) return;
+            printed = true;
+            window.focus();
+            window.print();
+          }
+          if (document.readyState === 'complete') {
+            setTimeout(doPrint, 200);
+          } else {
+            window.addEventListener('load', function() {
+              setTimeout(doPrint, 200);
+            });
+            setTimeout(doPrint, 800);
+          }
+        </script>
+      </body>
+    </html>
+  `;
+  printWindow.document.open();
+  printWindow.document.write(content);
+  printWindow.document.close();
+};
+
+export const handlePrintSurgery = async (patient: Patient, settings: any) => {
+  const rawLogo = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg'
+    ? settings.logoUrl
+    : '/lifecare-logo.jpg';
+  const absoluteLogoUrl = rawLogo.startsWith('http') || rawLogo.startsWith('data:')
+    ? rawLogo
+    : `${window.location.origin}${rawLogo.startsWith('/') ? '' : '/'}${rawLogo}`;
+
+  let logoSrc = absoluteLogoUrl;
+  try {
+    const resp = await fetch(absoluteLogoUrl, {
+      mode: 'cors',
+      cache: 'force-cache',
+      headers: { 'ngrok-skip-browser-warning': 'true' },
+    });
+    if (resp.ok) {
+      const blob = await resp.blob();
+      logoSrc = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+  } catch {
+    // keep absoluteLogoUrl fallback
+  }
+
+  const oldFrame = document.getElementById("surgery-print-iframe");
+  if (oldFrame) oldFrame.remove();
+
+  const printIframe = document.createElement("iframe");
+  printIframe.id = "surgery-print-iframe";
+  printIframe.style.position = "fixed";
+  printIframe.style.top = "-9999px";
+  printIframe.style.left = "-9999px";
+  printIframe.style.width = "0";
+  printIframe.style.height = "0";
+  printIframe.style.border = "none";
+  document.body.appendChild(printIframe);
+
+  const printWindow = printIframe.contentWindow;
+  if (!printWindow) return;
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-GB');
+  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const formattedDateTime = `${dateStr}, ${timeStr}`;
+
+  const addressParts = [patient.addressLine, patient.city, patient.state, patient.pincode].filter(Boolean);
+  const fullAddress = addressParts.join(', ');
+  const mediclaimStatus = patient.mediclaim
+    ? `YES${patient.insuranceCompany ? ` (${patient.insuranceCompany}${patient.policyNumber ? ` - ${patient.policyNumber}` : ''})` : ''}`
+    : 'NO';
+
+  const content = `
+    <html>
+      <head>
+        <title>Surgery Consent Form - ${patient.code}</title>
+        <style>
+          @page { margin: 0; size: A4; }
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          html, body { 
+            height: 100%;
+            margin: 0; 
+            padding: 0; 
+            background: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            color: #111; 
+            line-height: 1.35; 
+            font-size: 11.5px; 
+            font-weight: 600; 
+          }
+          
+          .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            -webkit-transform: translate(-50%, -50%);
+            opacity: 0.12;
+            z-index: 0;
+            pointer-events: none;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          .watermark img { 
+            width: 88%; 
+            max-width: 780px; 
+            object-fit: contain; 
+            transform: rotate(-45deg); 
+            -webkit-transform: rotate(-45deg); 
+          }
+
+          .page-container {
+            box-sizing: border-box;
+            width: 100%;
+            max-width: 210mm;
+            height: 295mm;
+            min-height: 295mm;
+            max-height: 295mm;
+            margin: 0 auto;
+            padding: 16px 28px 18px 28px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            z-index: 1;
+            background: transparent;
+            overflow: hidden;
+          }
+
+          .top-section { 
+            background-color: #4b4b4b !important; 
+            margin: 18px 0 10px 0;
+            border-radius: 40px;
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            height: 120px;
+            position: relative;
+            flex-shrink: 0;
+          }
+          .logo-container { 
+            background-color: white !important;
+            height: 100%;
+            width: calc(100% - 180px);
+            border-radius: 40px 0 0 40px;
+            display: flex; 
+            align-items: center; 
+            justify-content: flex-start; 
+            padding: 0;
+            box-sizing: border-box;
+          }
+          .logo-container img { width: 100%; height: 100%; border-radius: 40px 0 0 40px; object-fit: fill; }
+          .helpline-circle {
+            background-color: white !important;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+          }
+          .helpline-circle span { color: #e53e3e; }
+          .helpline-title { font-size: 14px; margin-bottom: 4px; }
+          .helpline-number { font-size: 18px; font-weight: bold; }
+          
+          .main-body {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 0;
+          }
+
+          .title-area { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: baseline; 
+            border-bottom: 1.5px solid #444; 
+            padding-bottom: 4px; 
+            margin-bottom: 8px; 
+          }
+          .form-title { 
+            color: #4f46e5; 
+            text-decoration: underline; 
+            font-size: 14px; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px;
+          }
+          .date-time { 
+            text-decoration: underline; 
+            color: #5588a3; 
+            font-size: 12px; 
+            font-weight: 700;
+          }
+          
+          .form-row { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 8px; 
+            align-items: baseline; 
+            margin-bottom: 5px;
+          }
+          .field-label { 
+            text-transform: uppercase; 
+            white-space: nowrap; 
+            color: #111; 
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.2px;
+          }
+          .field-value { 
+            flex: 1; 
+            border-bottom: 1.5px dotted #333; 
+            padding-left: 6px; 
+            font-size: 12px;
+            font-weight: 600;
+            color: #000;
+            min-height: 20px;
+          }
+
+          .surgery-grid {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+            margin-bottom: 8px;
+            flex: 1;
+            min-height: 0;
+          }
+          .vitals-col {
+            width: 270px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+          .vitals-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border: 1.5px solid #444;
+            border-radius: 4px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.7);
+          }
+          .vitals-header {
+            background-color: #f1f5f9;
+            color: #e53e3e;
+            font-weight: 800;
+            font-size: 11.5px;
+            text-align: center;
+            padding: 5px 8px;
+            border-bottom: 1.5px solid #444;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            flex-shrink: 0;
+          }
+          .vitals-tbl {
+            width: 100%;
+            flex: 1;
+            border-collapse: collapse;
+            font-size: 12px;
+          }
+          .vitals-tbl tr {
+            height: 20%;
+          }
+          .vitals-tbl tr:not(:last-child) td {
+            border-bottom: 1px solid #cbd5e1;
+          }
+          .v-name {
+            font-weight: 800;
+            color: #e53e3e;
+            width: 80px;
+            padding: 4px 10px;
+            border-right: 1.5px solid #444;
+            background-color: #f8fafc;
+            vertical-align: middle;
+            font-size: 12px;
+          }
+          .v-box {
+            padding: 4px 8px;
+            vertical-align: middle;
+          }
+
+          .status-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+          }
+
+          .status-box {
+            border: 1.5px solid #444;
+            border-radius: 4px;
+            padding: 8px 12px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: rgba(255, 255, 255, 0.7);
+          }
+          .box-title {
+            font-weight: 800;
+            font-size: 12px;
+            margin-bottom: 4px;
+            color: #111;
+          }
+          .box-title.red {
+            color: #e53e3e;
+            text-decoration: underline;
+          }
+          .box-body {
+            flex: 1;
+            font-size: 12px;
+            line-height: 1.45;
+            white-space: pre-wrap;
+          }
+
+          .sign-area {
+            border-top: 1.5px solid #333;
+            padding-top: 14px;
+            font-size: 12.5px;
+            font-weight: 700;
+            flex-shrink: 0;
+            margin-top: 8px;
+          }
+          .sign-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 18px;
+          }
+          .sign-row:last-child {
+            margin-bottom: 0;
+          }
+          .sign-line {
+            border-bottom: 1.5px dotted #333;
+            display: inline-block;
+            min-width: 190px;
+            padding-left: 6px;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="watermark">
+          <img src="${logoSrc}" alt="Watermark" onerror="this.src='/lifecare-logo.jpg'" />
+        </div>
+        <div class="page-container">
+          <div class="top-section">
+            <div class="logo-container">
+              <img src="${logoSrc}" alt="Hospital Logo" onerror="this.src='/lifecare-logo.jpg'" />
+            </div>
+            <div class="helpline-circle">
+              <span class="helpline-title">Help Line :</span>
+              <span class="helpline-number">${settings?.helpline || '7016124362'}</span>
+            </div>
+          </div>
+
+          <div class="main-body">
+            <div class="title-area">
+              <div class="form-title">SURGERY CONSENT FORM</div>
+              <div class="date-time">DATE / TIME :- ${formattedDateTime}</div>
+            </div>
+
+            <div class="form-row">
+              <span class="field-label">PATIENT FULL NAME -</span>
+              <span class="field-value">${patient.name || ''}</span>
+            </div>
+
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">AGE / GENDER -</span>
+              <span class="field-value" style="flex: 2;">${patient.age ? `${patient.age} / ${patient.gender}` : ''}</span>
+              <span class="field-label">OCCUPATION -</span>
+              <span class="field-value" style="flex: 2;">${patient.occupation || '-'}</span>
+              <span class="field-label">CITY -</span>
+              <span class="field-value" style="flex: 2;">${patient.city || '-'}</span>
+            </div>
+
+            <div class="form-row">
+              <span class="field-label">CURRANTLY WITH RELATIVE NAME -</span>
+              <span class="field-value">${patient.relativeName || '-'}</span>
+            </div>
+
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">RELATION -</span>
+              <span class="field-value" style="flex: 2;">${patient.relation || '-'}</span>
+              <span class="field-label">RELATIVE MO NO, -</span>
+              <span class="field-value" style="flex: 2;">${patient.relativePhone || '-'}</span>
+            </div>
+
+            <div class="form-row">
+              <span class="field-label">PERMANENT ADDRESS -</span>
+              <span class="field-value">${fullAddress || '-'}</span>
+            </div>
+
+            <div class="form-row" style="display: flex;">
+              <span class="field-label">MO.,NO,. -</span>
+              <span class="field-value" style="flex: 2;">${patient.phone || '-'}</span>
+              <span class="field-label">MEDICLAIM –</span>
+              <span class="field-value" style="flex: 2;">${mediclaimStatus}</span>
+            </div>
+
+            <div class="form-row">
+              <span class="field-label">TYPE OF OPRETION -</span>
+              <span class="field-value" style="font-weight: 700; color: #1e3a8a;">${patient.surgeryType || '-'}</span>
+            </div>
+
+            <div class="form-row">
+              <span class="field-label">ANY OF SURGICAL OR RISKY PAST H/O -</span>
+              <span class="field-value">${patient.surgeryPastHistory || '-'}</span>
+            </div>
+
+            <div class="surgery-grid">
+              <div class="vitals-col">
+                <div class="vitals-section">
+                  <div class="vitals-header">PRE-OPERATIVE VITALS</div>
+                  <table class="vitals-tbl">
+                    <tr><td class="v-name">B.P.</td><td class="v-box"></td></tr>
+                    <tr><td class="v-name">PULSE</td><td class="v-box"></td></tr>
+                    <tr><td class="v-name">SPo2</td><td class="v-box"></td></tr>
+                    <tr><td class="v-name">TEM”</td><td class="v-box"></td></tr>
+                    <tr><td class="v-name">R.R.</td><td class="v-box"></td></tr>
+                  </table>
+                </div>
+
+                <div class="vitals-section">
+                  <div class="vitals-header">POST OPRETIVE VITALS</div>
+                  <table class="vitals-tbl">
+                    <tr><td class="v-name">B.P.</td><td class="v-box"></td></tr>
+                    <tr><td class="v-name">PULSE</td><td class="v-box"></td></tr>
+                    <tr><td class="v-name">Spo2</td><td class="v-box"></td></tr>
+                    <tr><td class="v-name">R.R.</td><td class="v-box"></td></tr>
+                    <tr><td class="v-name">RBS</td><td class="v-box"></td></tr>
+                  </table>
+                </div>
+              </div>
+
+              <div class="status-col">
+                <div class="status-box">
+                  <div class="box-title red">NOTE ABOUT RISK</div>
+                  <div class="box-body">${patient.surgeryRiskNote || ''}</div>
+                </div>
+
+                <div class="status-box">
+                  <div class="box-title">PRE OPRETIVE STATUS</div>
+                  <div class="box-body">${patient.surgeryPreOpStatus || ''}</div>
+                </div>
+
+                <div class="status-box">
+                  <div class="box-title">POST OPRETIVE STATUS</div>
+                  <div class="box-body">${patient.surgeryPostOpStatus || ''}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sign-area">
+            <div class="sign-row">
+              <div>Dr. INCHARGE - <span class="sign-line">${patient.doctor || ''}</span></div>
+              <div>MEDICAL OFFICER - <span class="sign-line">${patient.emergencyMedicalOfficer || patient.mlcMedicalOfficer || ''}</span></div>
+            </div>
+            <div class="sign-row">
+              <div>NAME OF RELATIVE:- <span class="sign-line">${patient.relativeName || ''}</span></div>
+              <div>SIGNETURE:- ....................................................</div>
+            </div>
+            <div class="sign-row" style="margin-bottom: 0;">
+              <div>NAME OF PATIENT:- <span class="sign-line">${patient.name}</span></div>
+              <div>SIGNETURE:- ....................................................</div>
+            </div>
+          </div>
+        </div>
+
+        <script>
+          var printed = false;
+          function doPrint() {
+            if (printed) return;
+            printed = true;
+            window.focus();
+            window.print();
+          }
+          if (document.readyState === 'complete') {
+            setTimeout(doPrint, 200);
+          } else {
+            window.addEventListener('load', function() {
+              setTimeout(doPrint, 200);
+            });
+            setTimeout(doPrint, 800);
+          }
+        </script>
+      </body>
+    </html>
+  `;
+  printWindow.document.open();
+  printWindow.document.write(content);
+  printWindow.document.close();
+};
+
+export const handlePrintProcedureChart = async (patient: Patient, settings: any) => {
+  const rawLogo = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg'
+    ? settings.logoUrl
+    : '/lifecare-logo.jpg';
+  const absoluteLogoUrl = rawLogo.startsWith('http') || rawLogo.startsWith('data:')
+    ? rawLogo
+    : `${window.location.origin}${rawLogo.startsWith('/') ? '' : '/'}${rawLogo}`;
+
+  let logoSrc = absoluteLogoUrl;
+  try {
+    const resp = await fetch(absoluteLogoUrl, {
+      mode: 'cors',
+      cache: 'force-cache',
+      headers: { 'ngrok-skip-browser-warning': 'true' },
+    });
+    if (resp.ok) {
+      const blob = await resp.blob();
+      logoSrc = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+  } catch {
+    // keep absoluteLogoUrl fallback
+  }
+
+  const oldFrame = document.getElementById("procedure-print-iframe");
+  if (oldFrame) oldFrame.remove();
+
+  const printIframe = document.createElement("iframe");
+  printIframe.id = "procedure-print-iframe";
+  printIframe.style.position = "fixed";
+  printIframe.style.top = "-9999px";
+  printIframe.style.left = "-9999px";
+  printIframe.style.width = "0";
+  printIframe.style.height = "0";
+  printIframe.style.border = "none";
+  document.body.appendChild(printIframe);
+
+  const printWindow = printIframe.contentWindow;
+  if (!printWindow) return;
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-GB');
+  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const formattedDateTime = `${dateStr}, ${timeStr}`;
+
+  const procedures = [
+    { name: "Oxygen", sub: "" },
+    { name: "Urethral Catheter", sub: "Urine / ML" },
+    { name: "Ryle Tube", sub: "Aspiration / ML" },
+    { name: "Monitor", sub: "Vitals" },
+    { name: "Infusion pump", sub: "Injection / ML" },
+    { name: "Enema", sub: "" },
+    { name: "Intracath", sub: "" },
+    { name: "Iv fluids", sub: "" },
+    { name: "Dressing", sub: "" },
+    { name: "Any one belt", sub: "" },
+    { name: "Scrap Bandage", sub: "" },
+    { name: "Pop", sub: "" },
+    { name: "Stitches Procedure", sub: "" },
+    { name: "Ventilator Mode", sub: "" },
+    { name: "Vomiting", sub: "" },
+    { name: "Stool", sub: "" },
+    { name: "Vain section(VS)", sub: "" },
+    { name: "Central venous pressure(CVP)", sub: "" },
+    { name: "Patient mopping", sub: "" },
+    { name: "Endometrial tube", sub: "" },
+    { name: "Tracheostomy procedure", sub: "" },
+    { name: "Bipap", sub: "" },
+    { name: "Suction", sub: "" }
+  ];
+
+  const content = `
+    <html>
+      <head>
+        <title>Procedure Schedule Chart - ${patient.code}</title>
+        <style>
+          @page { margin: 0; size: A4; }
+          * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          html, body { 
+            height: 100%;
+            margin: 0; 
+            padding: 0; 
+            background: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            color: #111; 
+            line-height: 1.3; 
+            font-size: 11px; 
+            font-weight: 600; 
+          }
+          
+          .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            -webkit-transform: translate(-50%, -50%);
+            opacity: 0.11;
+            z-index: 0;
+            pointer-events: none;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          .watermark img { 
+            width: 88%; 
+            max-width: 780px; 
+            object-fit: contain; 
+            transform: rotate(-45deg); 
+            -webkit-transform: rotate(-45deg); 
+          }
+
+          .page-container {
+            box-sizing: border-box;
+            width: 100%;
+            max-width: 210mm;
+            height: 295mm;
+            min-height: 295mm;
+            max-height: 295mm;
+            margin: 0 auto;
+            padding: 12px 24px 14px 24px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            z-index: 1;
+            background: transparent;
+            overflow: hidden;
+          }
+
+          .top-section { 
+            background-color: #4b4b4b !important; 
+            margin: 0 0 8px 0;
+            border-radius: 40px;
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            height: 120px;
+            position: relative;
+            flex-shrink: 0;
+          }
+          .logo-container { 
+            background-color: white !important;
+            height: 100%;
+            width: calc(100% - 180px);
+            border-radius: 40px 0 0 40px;
+            display: flex; 
+            align-items: center; 
+            justify-content: flex-start; 
+            padding: 0;
+            box-sizing: border-box;
+          }
+          .logo-container img { width: 100%; height: 100%; border-radius: 40px 0 0 40px; object-fit: fill; }
+          .helpline-circle {
+            background-color: white !important;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+          }
+          .helpline-circle span { color: #e53e3e; }
+          .helpline-title { font-size: 14px; margin-bottom: 4px; }
+          .helpline-number { font-size: 18px; font-weight: bold; }
+
+          .title-area { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: baseline; 
+            border-bottom: 1.5px solid #444; 
+            padding-bottom: 3px; 
+            margin-bottom: 6px; 
+          }
+          .form-title { 
+            color: #0d9488; 
+            text-decoration: underline; 
+            font-size: 13.5px; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px;
+          }
+          .date-time { 
+            text-decoration: underline; 
+            color: #5588a3; 
+            font-size: 11.5px; 
+            font-weight: 700;
+          }
+
+          .patient-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 5px 10px;
+            margin-bottom: 6px;
+            font-size: 11.5px;
+          }
+          .p-item {
+            display: flex;
+            gap: 4px;
+          }
+          .p-lbl {
+            font-weight: 800;
+            color: #334155;
+            text-transform: uppercase;
+          }
+          .p-val {
+            font-weight: 700;
+            color: #0f172a;
+          }
+
+          .chart-tbl {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+          }
+          .chart-tbl th, .chart-tbl td {
+            border: 1.1px solid #475569;
+            padding: 2px 5px;
+            text-align: center;
+            vertical-align: middle;
+            height: 21px;
+          }
+          .chart-tbl th {
+            background-color: #0f766e;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 10.5px;
+            letter-spacing: 0.3px;
+          }
+          .chart-tbl td.proc-name {
+            text-align: left;
+            font-weight: 700;
+            color: #1e293b;
+            background-color: #f8fafc;
+            width: 28%;
+            font-size: 10px;
+            padding-left: 6px;
+          }
+          .chart-tbl td.proc-name small {
+            display: block;
+            font-size: 8.5px;
+            color: #64748b;
+            font-weight: 600;
+          }
+          .chart-tbl td.slot-cell {
+            width: 12%;
+          }
+
+          .footer-section {
+            margin-top: 6px;
+            flex-shrink: 0;
+          }
+          .bottom-sign {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-top: 4px;
+            padding-top: 6px;
+            border-top: 1.5px solid #444;
+            font-size: 11px;
+            font-weight: 700;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="watermark">
+          <img src="${logoSrc}" alt="Watermark" onerror="this.src='/lifecare-logo.jpg'" />
+        </div>
+        <div class="page-container">
+          <div>
+            <div class="top-section">
+              <div class="logo-container">
+                <img src="${logoSrc}" alt="Hospital Logo" onerror="this.src='/lifecare-logo.jpg'" />
+              </div>
+              <div class="helpline-circle">
+                <span class="helpline-title">Help Line :</span>
+                <span class="helpline-number">${settings?.helpline || '7016124362'}</span>
+              </div>
+            </div>
+
+            <div class="title-area">
+              <div class="form-title">DAILY PROCEDURE SCHEDULE CHART</div>
+              <div class="date-time">DATE / TIME :- ${formattedDateTime}</div>
+            </div>
+
+            <div class="patient-bar">
+              <div class="p-item"><span class="p-lbl">Patient:</span> <span class="p-val">${patient.name} (${patient.code})</span></div>
+              <div class="p-item"><span class="p-lbl">Age/Gender:</span> <span class="p-val">${patient.age} / ${patient.gender}</span></div>
+              <div class="p-item"><span class="p-lbl">Ward / Bed:</span> <span class="p-val">${patient.ward || '-'} / ${patient.wardNumber || '-'}</span></div>
+              <div class="p-item"><span class="p-lbl">Doctor:</span> <span class="p-val">${patient.doctor || '-'}</span></div>
+            </div>
+
+            <table class="chart-tbl">
+              <thead>
+                <tr style="background-color: #0f766e; color: white;">
+                  <th style="color: white; background-color: #0f766e; text-align: left; padding-left: 8px; width: 28%;">PROCEDURE</th>
+                  <th style="color: white; background-color: #0f766e; width: 12%;">TIME / 1</th>
+                  <th style="color: white; background-color: #0f766e; width: 12%;">TIME / 2</th>
+                  <th style="color: white; background-color: #0f766e; width: 12%;">TIME / 3</th>
+                  <th style="color: white; background-color: #0f766e; width: 12%;">TIME / 4</th>
+                  <th style="color: white; background-color: #0f766e; width: 12%;">TIME / 5</th>
+                  <th style="color: white; background-color: #0f766e; width: 12%;">TIME / 6</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="proc-name">FBD / RBS / PP2BS</td>
+                  <td style="font-weight: 700; color: #0d9488;">FBS</td>
+                  <td></td>
+                  <td style="font-weight: 700; color: #0d9488;">PP2bS</td>
+                  <td></td>
+                  <td></td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td class="proc-name">NEBULISER</td>
+                  <td style="font-weight: 700; color: #0369a1;">MORNING</td>
+                  <td style="font-weight: 700; color: #0369a1;">AFTERNOON</td>
+                  <td style="font-weight: 700; color: #0369a1;">EVENING</td>
+                  <td style="font-weight: 700; color: #0369a1;">NIGHT</td>
+                  <td></td>
+                  <td></td>
+                </tr>
+                ${procedures.map((proc) => `
+                  <tr>
+                    <td class="proc-name">
+                      ${proc.name}
+                      ${proc.sub ? `<small>${proc.sub}</small>` : ''}
+                    </td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+
+            <div style="margin-top: 10px; font-size: 10.5px; color: #1e293b; font-weight: 600;">
+              <strong>NOTE :</strong> .............................................................................................................................................................................................................
+            </div>
+          </div>
+
+          <div class="bottom-sign">
+            <div>STAFF MORNING: .....................</div>
+            <div>STAFF EVENING: .....................</div>
+            <div>STAFF NIGHT: .....................</div>
+            <div>MEDICAL OFFICER: .....................</div>
           </div>
         </div>
 
@@ -2532,7 +3912,7 @@ export function ConsentFormDialog({
 
   return (
     <Dialog open={true} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[96vw] sm:max-w-3xl max-h-[92vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <FileCheck className="h-6 w-6 text-primary" />
@@ -2565,13 +3945,21 @@ export function ConsentFormDialog({
 
         <div className="flex justify-between items-center mt-2 flex-wrap gap-2">
           {!isReprint && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button variant="outline" onClick={printConsent}>
                 <Printer className="h-4 w-4 mr-2" /> Print Consent Form
+              </Button>
+              <Button variant="outline" className="border-teal-500 text-teal-600 hover:bg-teal-50" onClick={() => handlePrintProcedureChart(patient, settings)}>
+                <Printer className="h-4 w-4 mr-2" /> Print Procedure Chart
               </Button>
               {patient.isEmergency && (
                 <Button variant="outline" className="border-rose-500 text-rose-600 hover:bg-rose-50" onClick={() => handlePrintEmergency(patient, settings)}>
                   <Printer className="h-4 w-4 mr-2" /> Print Emergency Form
+                </Button>
+              )}
+              {patient.isSurgery && (
+                <Button variant="outline" className="border-indigo-500 text-indigo-600 hover:bg-indigo-50" onClick={() => handlePrintSurgery(patient, settings)}>
+                  <Printer className="h-4 w-4 mr-2" /> Print Surgery Form
                 </Button>
               )}
               {patient.isMlc && (
@@ -2582,10 +3970,18 @@ export function ConsentFormDialog({
             </div>
           )}
           {isReprint && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" className="border-teal-500 text-teal-600 hover:bg-teal-50" onClick={() => handlePrintProcedureChart(patient, settings)}>
+                <Printer className="h-4 w-4 mr-2" /> Print Procedure Chart
+              </Button>
               {patient.isEmergency && (
                 <Button variant="outline" className="border-rose-500 text-rose-600 hover:bg-rose-50" onClick={() => handlePrintEmergency(patient, settings)}>
                   <Printer className="h-4 w-4 mr-2" /> Print Emergency Form
+                </Button>
+              )}
+              {patient.isSurgery && (
+                <Button variant="outline" className="border-indigo-500 text-indigo-600 hover:bg-indigo-50" onClick={() => handlePrintSurgery(patient, settings)}>
+                  <Printer className="h-4 w-4 mr-2" /> Print Surgery Form
                 </Button>
               )}
               {patient.isMlc && (

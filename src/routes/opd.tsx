@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
-import { Search, Plus, Trash2, Printer, Stethoscope } from "lucide-react";
+import { Search, Plus, Trash2, Printer, Stethoscope, Receipt, ChevronDown, FileText, AlertCircle, FileCheck } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/components/RoleGuard";
@@ -16,12 +16,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { useDB } from "@/lib/useStore";
 import { opdService } from "@/services/opdService";
 import { medicalService } from "@/services/medicalService";
 import { receptionService } from "@/services/receptionService";
 import { apiService } from "@/api/apiService";
-import { handlePrintMlc, handlePrintEmergency } from "./reception";
+import { handlePrintMlc, handlePrintEmergency, handlePrintReceipt } from "./reception";
 import type { Patient, PrescribedMedicine, Prescription } from "@/lib/store";
 
 export const Route = createFileRoute("/opd")({
@@ -210,7 +211,7 @@ function OPDPage() {
     const logoUrl = settings?.logoUrl && settings.logoUrl !== '/logo.png' && settings.logoUrl !== '/logo.jpg' ? settings.logoUrl : '/lifecare-logo.jpg';
     
     const showSlot = (v: string) => {
-      if (v === "true") return "✓";
+      if (v === "true") return "1";
       if (v === "false") return "";
       return v;
     };
@@ -229,7 +230,7 @@ function OPDPage() {
         <tbody>
           ${rx.medicines.map(m => {
             const displaySlot = (v: string) => {
-              if (v === "true") return "✓";
+              if (v === "true") return "1";
               if (v === "false" || !v) return "";
               return v;
             };
@@ -570,7 +571,8 @@ function OPDPage() {
             <Input className="pl-9" placeholder="Search by patient code or name..." value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
 
-          <div className="rounded-lg border overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden md:block rounded-lg border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -591,40 +593,251 @@ function OPDPage() {
                 {paginatedPatients.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-mono text-xs">{p.code}</TableCell>
-                    <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>{p.name}</span>
+                        {p.isEmergency && (
+                          <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 font-bold tracking-wider">
+                            EMERGENCY
+                          </Badge>
+                        )}
+                        {p.isMlc && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-500 text-amber-600 font-bold tracking-wider bg-amber-500/10">
+                            MLC
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>{p.age} / {p.gender}</TableCell>
                     <TableCell>{p.department}</TableCell>
                     <TableCell>{p.doctor}</TableCell>
                     <TableCell className="text-muted-foreground text-xs">{new Date(p.registeredAt).toLocaleDateString()}</TableCell>
                     <TableCell><StatusBadge status={p.status} /></TableCell>
                     <TableCell className="text-right whitespace-nowrap">
-                      {p.status === "Completed" ? (
-                        <Button size="sm" variant="outline" onClick={() => openPrint(p)}>
-                          <Printer className="h-4 w-4 mr-2" /> View / Print
+                      <div className="flex items-center justify-end gap-1.5">
+                        {p.status === "Completed" ? (
+                          <Button size="sm" variant="outline" onClick={() => openPrint(p)} className="h-8 gap-1.5 font-medium">
+                            <Stethoscope className="h-3.5 w-3.5 text-primary" /> View / Print
+                          </Button>
+                        ) : (
+                          <Button size="sm" onClick={() => openPrescribe(p)} className="h-8 gap-1.5 font-medium">
+                            <Stethoscope className="h-3.5 w-3.5" /> Prescribe
+                          </Button>
+                        )}
+
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="sm" variant="outline" className="h-8 gap-1 px-2.5 font-medium" title="Print options">
+                              <Printer className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>Print</span>
+                              <ChevronDown className="h-3 w-3 opacity-60 ml-0.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuItem
+                              onClick={() => handlePrintReceipt(p, db.hospitalSettings)}
+                              className="cursor-pointer gap-2 py-2"
+                            >
+                              <Receipt className="h-4 w-4 text-emerald-600" />
+                              <div className="flex flex-col text-left">
+                                <span className="font-medium text-xs">Registration Receipt</span>
+                                <span className="text-[10px] text-muted-foreground">A4 Consultation Receipt</span>
+                              </div>
+                            </DropdownMenuItem>
+
+                            {p.status === "Completed" && (
+                              <DropdownMenuItem
+                                onClick={() => openPrint(p)}
+                                className="cursor-pointer gap-2 py-2"
+                              >
+                                <FileText className="h-4 w-4 text-blue-600" />
+                                <div className="flex flex-col text-left">
+                                  <span className="font-medium text-xs">Prescription</span>
+                                  <span className="text-[10px] text-muted-foreground">Medicines &amp; Advice</span>
+                                </div>
+                              </DropdownMenuItem>
+                            )}
+
+                            {p.isEmergency && (
+                              <DropdownMenuItem
+                                onClick={() => handlePrintEmergency(p, db.hospitalSettings)}
+                                className="cursor-pointer gap-2 py-2 text-rose-600 focus:text-rose-600 focus:bg-rose-50"
+                              >
+                                <AlertCircle className="h-4 w-4 text-rose-600" />
+                                <div className="flex flex-col text-left">
+                                  <span className="font-medium text-xs">Emergency Form</span>
+                                  <span className="text-[10px] text-rose-500/80">Clinical Emergency Sheet</span>
+                                </div>
+                              </DropdownMenuItem>
+                            )}
+
+                            {p.isMlc && (
+                              <DropdownMenuItem
+                                onClick={() => handlePrintMlc(p, db.hospitalSettings)}
+                                className="cursor-pointer gap-2 py-2 text-amber-600 focus:text-amber-600 focus:bg-amber-50"
+                              >
+                                <FileCheck className="h-4 w-4 text-amber-600" />
+                                <div className="flex flex-col text-left">
+                                  <span className="font-medium text-xs">M.L.C. Form</span>
+                                  <span className="text-[10px] text-amber-500/80">Medico-Legal Record</span>
+                                </div>
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteId(p.id)}
+                          className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 ml-0.5"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </Button>
-                      ) : (
-                        <Button size="sm" onClick={() => openPrescribe(p)}>
-                          <Stethoscope className="h-4 w-4 mr-1" /> Prescribe
-                        </Button>
-                      )}
-                      {p.isEmergency && (
-                        <Button size="sm" variant="outline" className="ml-2 border-rose-500 text-rose-600 hover:bg-rose-50" onClick={() => handlePrintEmergency(p, db.hospitalSettings)}>
-                          <Printer className="h-4 w-4 mr-2" /> Print Emergency
-                        </Button>
-                      )}
-                      {p.isMlc && (
-                        <Button size="sm" variant="outline" className="ml-2" onClick={() => handlePrintMlc(p, db.hospitalSettings)}>
-                          <Printer className="h-4 w-4 mr-2" /> Print MLC
-                        </Button>
-                      )}
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteId(p.id)} className="ml-2 text-red-500 hover:text-red-700 hover:bg-red-50">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Mobile Grid View - Compact Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 md:hidden">
+            {paginatedPatients.length === 0 && (
+              <div className="text-center text-muted-foreground py-8 text-sm col-span-full border rounded-lg bg-muted/20">
+                No patients found.
+              </div>
+            )}
+            {paginatedPatients.map((p) => (
+              <div
+                key={p.id}
+                className="rounded-lg border bg-card p-3 shadow-sm hover:border-primary/40 transition-colors flex flex-col justify-between gap-2"
+              >
+                <div>
+                  {/* Top Bar: Code, Date & Status */}
+                  <div className="flex items-center justify-between gap-1 text-[11px] text-muted-foreground">
+                    <span className="font-mono font-semibold text-primary/90">{p.code}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span>{new Date(p.registeredAt).toLocaleDateString()}</span>
+                      <StatusBadge status={p.status} />
+                    </div>
+                  </div>
+
+                  {/* Name & Badges */}
+                  <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                    <span className="font-semibold text-sm text-foreground">{p.name}</span>
+                    {p.isEmergency && (
+                      <Badge variant="destructive" className="text-[9px] px-1 py-0 h-3.5 font-bold tracking-wider">
+                        EMERGENCY
+                      </Badge>
+                    )}
+                    {p.isMlc && (
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-amber-500 text-amber-600 font-bold tracking-wider bg-amber-500/10">
+                        MLC
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Demographic & Dept / Doctor */}
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
+                    <span>{p.age} / {p.gender}</span>
+                    <span className="truncate max-w-[150px]">
+                      {p.department}{p.doctor ? ` • ${p.doctor}` : ""}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bottom Action Buttons */}
+                <div className="flex items-center justify-between pt-2 border-t border-border/60 mt-1">
+                  <div>
+                    {p.status === "Completed" ? (
+                      <Button size="sm" variant="outline" onClick={() => openPrint(p)} className="h-7 text-xs px-2.5 gap-1 font-medium">
+                        <Stethoscope className="h-3 w-3 text-primary" /> View / Print
+                      </Button>
+                    ) : (
+                      <Button size="sm" onClick={() => openPrescribe(p)} className="h-7 text-xs px-2.5 gap-1 font-medium">
+                        <Stethoscope className="h-3 w-3" /> Prescribe
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1 px-2 font-medium" title="Print options">
+                          <Printer className="h-3 w-3 text-muted-foreground" />
+                          <span>Print</span>
+                          <ChevronDown className="h-2.5 w-2.5 opacity-60" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52">
+                        <DropdownMenuItem
+                          onClick={() => handlePrintReceipt(p, db.hospitalSettings)}
+                          className="cursor-pointer gap-2 py-2"
+                        >
+                          <Receipt className="h-4 w-4 text-emerald-600" />
+                          <div className="flex flex-col text-left">
+                            <span className="font-medium text-xs">Registration Receipt</span>
+                            <span className="text-[10px] text-muted-foreground">A4 Consultation Receipt</span>
+                          </div>
+                        </DropdownMenuItem>
+
+                        {p.status === "Completed" && (
+                          <DropdownMenuItem
+                            onClick={() => openPrint(p)}
+                            className="cursor-pointer gap-2 py-2"
+                          >
+                            <FileText className="h-4 w-4 text-blue-600" />
+                            <div className="flex flex-col text-left">
+                              <span className="font-medium text-xs">Prescription</span>
+                              <span className="text-[10px] text-muted-foreground">Medicines &amp; Advice</span>
+                            </div>
+                          </DropdownMenuItem>
+                        )}
+
+                        {p.isEmergency && (
+                          <DropdownMenuItem
+                            onClick={() => handlePrintEmergency(p, db.hospitalSettings)}
+                            className="cursor-pointer gap-2 py-2 text-rose-600 focus:text-rose-600 focus:bg-rose-50"
+                          >
+                            <AlertCircle className="h-4 w-4 text-rose-600" />
+                            <div className="flex flex-col text-left">
+                              <span className="font-medium text-xs">Emergency Form</span>
+                              <span className="text-[10px] text-rose-500/80">Clinical Emergency Sheet</span>
+                            </div>
+                          </DropdownMenuItem>
+                        )}
+
+                        {p.isMlc && (
+                          <DropdownMenuItem
+                            onClick={() => handlePrintMlc(p, db.hospitalSettings)}
+                            className="cursor-pointer gap-2 py-2 text-amber-600 focus:text-amber-600 focus:bg-amber-50"
+                          >
+                            <FileCheck className="h-4 w-4 text-amber-600" />
+                            <div className="flex flex-col text-left">
+                              <span className="font-medium text-xs">M.L.C. Form</span>
+                              <span className="text-[10px] text-amber-500/80">Medico-Legal Record</span>
+                            </div>
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDeleteId(p.id)}
+                      className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                      title="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
           
           {totalPages > 1 && (
@@ -654,7 +867,7 @@ function OPDPage() {
       </Card>
 
       <Dialog open={!!active} onOpenChange={(v) => !v && setActive(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[96vw] sm:max-w-4xl max-h-[92vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader><DialogTitle>Prescribe — {active?.name}</DialogTitle></DialogHeader>
           {active && (
             <div className="space-y-5">
@@ -755,7 +968,7 @@ function OPDPage() {
       </Dialog>
 
       <Dialog open={!!printData} onOpenChange={(v) => !v && setPrintData(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[96vw] sm:max-w-2xl max-h-[92vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader><DialogTitle>Prescription</DialogTitle></DialogHeader>
           {printData && <PrescriptionPrint p={printData.p} rx={printData.rx} hospitalSettings={db.hospitalSettings} />}
           <div className="flex justify-end gap-2 no-print">
@@ -825,7 +1038,7 @@ function PrescriptionPrint({ p, rx, hospitalSettings }: { p: Patient; rx: Prescr
           <tbody>
             {rx.medicines.map((m, i) => {
               const showSlot = (v: string) => {
-                if (v === "true") return "✓";
+                if (v === "true") return "1";
                 if (v === "false") return "";
                 return v;
               };

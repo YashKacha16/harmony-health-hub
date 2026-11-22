@@ -46,10 +46,16 @@ function MedicalPage() {
         <p className="text-sm text-muted-foreground">Manage stock and dispense against prescriptions.</p>
       </div>
       <Tabs defaultValue="stock">
-        <TabsList>
-          <TabsTrigger value="stock">Stock</TabsTrigger>
-          <TabsTrigger value="dispense">Dispense / Billing</TabsTrigger>
-          <TabsTrigger value="bills">Search Bills</TabsTrigger>
+        <TabsList className="grid grid-cols-3 w-full sm:max-w-md h-9 sm:h-10">
+          <TabsTrigger value="stock" className="text-xs sm:text-sm">Stock</TabsTrigger>
+          <TabsTrigger value="dispense" className="text-xs sm:text-sm px-1 sm:px-3">
+            <span className="sm:hidden">Dispense</span>
+            <span className="hidden sm:inline">Dispense / Billing</span>
+          </TabsTrigger>
+          <TabsTrigger value="bills" className="text-xs sm:text-sm px-1 sm:px-3">
+            <span className="sm:hidden">Bills</span>
+            <span className="hidden sm:inline">Search Bills</span>
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="stock" className="mt-4"><StockTab /></TabsContent>
         <TabsContent value="dispense" className="mt-4"><DispenseTab /></TabsContent>
@@ -104,22 +110,27 @@ function StockTab() {
   return (
     <Card className="shadow-[var(--shadow-card)]">
       <CardContent className="p-5 space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[220px]">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3">
+          <div className="relative flex-1">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input className="pl-9" placeholder="Search medicines..." value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
-          <Select value={catF} onValueChange={setCatF}>
-            <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All categories</SelectItem>
-              {db.categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Button onClick={() => { setDraft(emptyDraft()); setOpen(true); }}><Plus className="h-4 w-4 mr-2" /> Add medicine</Button>
+          <div className="flex items-center gap-2">
+            <Select value={catF} onValueChange={setCatF}>
+              <SelectTrigger className="flex-1 sm:w-[180px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                {db.categories.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button onClick={() => { setDraft(emptyDraft()); setOpen(true); }} className="shrink-0 gap-1.5">
+              <Plus className="h-4 w-4" /> <span className="hidden xs:inline">Add</span> Medicine
+            </Button>
+          </div>
         </div>
 
-        <div className="rounded-lg border overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="rounded-lg border overflow-x-auto hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -160,6 +171,97 @@ function StockTab() {
               ))}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Mobile Grid View - Compact Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 md:hidden">
+          {meds.length === 0 && (
+            <div className="text-center text-muted-foreground py-8 text-sm col-span-full border rounded-lg bg-muted/20">
+              No stock found.
+            </div>
+          )}
+          {meds.map((m) => {
+            const catName = db.categories.find((c) => c.id === m.categoryId)?.name || "Uncategorized";
+            const low = isLow(m);
+            const nearExp = isNearExpiry(m);
+
+            return (
+              <div
+                key={m.id}
+                className="rounded-lg border bg-card p-3 shadow-sm hover:border-primary/40 transition-colors flex flex-col justify-between gap-2.5"
+              >
+                <div className="space-y-1.5">
+                  {/* Top: Category & Badges */}
+                  <div className="flex items-center justify-between gap-1 text-[11px] text-muted-foreground">
+                    <span className="font-medium px-1.5 py-0.5 rounded bg-muted/60 text-muted-foreground text-[10px]">
+                      {catName}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {low && (
+                        <Badge variant="destructive" className="text-[9px] px-1.5 py-0 h-4 font-bold tracking-wide">
+                          LOW STOCK
+                        </Badge>
+                      )}
+                      {nearExp && (
+                        <Badge className="bg-amber-500/15 text-amber-600 border border-amber-500/30 text-[9px] px-1.5 py-0 h-4 font-bold tracking-wide">
+                          NEAR EXPIRY
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Medicine Name & MRP */}
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="font-semibold text-sm text-foreground">{m.name}</span>
+                    <span className="font-bold text-sm text-primary shrink-0">₹ {m.mrp}</span>
+                  </div>
+
+                  {/* Batch & Quantity */}
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="font-mono text-[11px]">
+                      Batch: {m.batch || "-"}
+                    </span>
+                    <span className="font-semibold text-foreground/90">
+                      Qty: {m.quantity} {unitLabel(m.categoryId)}
+                    </span>
+                  </div>
+
+                  {/* MFG / EXP Dates */}
+                  {(m.mfgDate || m.expDate) && (
+                    <div className="flex items-center justify-between text-[11px] text-muted-foreground/80 pt-0.5">
+                      <span>MFG: {m.mfgDate || "-"}</span>
+                      <span>EXP: {m.expDate || "-"}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions Row */}
+                <div className="flex items-center justify-end gap-1 pt-2 border-t border-border/60">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openEdit(m)}
+                    className="h-7 text-xs px-2.5 gap-1 font-medium text-foreground hover:bg-muted"
+                  >
+                    <Pencil className="h-3 w-3 text-muted-foreground" />
+                    <span>Edit</span>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      await medicalService.removeMedicine(m.id);
+                      toast.success("Removed");
+                    }}
+                    className="h-7 text-xs px-2 gap-1 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete</span>
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <Dialog open={open} onOpenChange={setOpen}>
@@ -322,11 +424,11 @@ function DispenseTab() {
                 value={walkInName}
                 onChange={(e) => setWalkInName(e.target.value)}
                 placeholder="Enter customer name"
-                className="w-64"
+                className="w-full sm:w-64"
               />
             </F>
           ) : (
-            <div className="relative">
+            <div className="relative w-full sm:w-auto">
               <F label="Patient code / name">
                 <Input
                   value={code}
@@ -335,7 +437,7 @@ function DispenseTab() {
                   onBlur={() => setTimeout(() => setShowResults(false), 200)}
                   onKeyDown={handleKeyDown}
                   placeholder="e.g. P-2026-00001 or Yash"
-                  className="w-64"
+                  className="w-full sm:w-64"
                 />
               </F>
               {showResults && searchResults.length > 0 && (
@@ -379,8 +481,9 @@ function DispenseTab() {
                 <div className="flex items-center gap-1 text-xs text-warning"><AlertTriangle className="h-3 w-3" /> Some prescribed medicines not in stock</div>
               )}
             </div>
-            <div className="rounded-lg border overflow-x-auto">
-              <Table>
+            {/* Desktop Table View */}
+            <div className="rounded-lg border overflow-x-auto hidden md:block">
+              <Table className="min-w-[550px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12">Dispense</TableHead>
@@ -390,6 +493,7 @@ function DispenseTab() {
                     <TableHead>Pieces</TableHead>
                     <TableHead>MRP</TableHead>
                     <TableHead>Total</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -427,11 +531,130 @@ function DispenseTab() {
                         <TableCell className="text-muted-foreground">{pieces}</TableCell>
                         <TableCell>₹ {m?.mrp ?? "—"}</TableCell>
                         <TableCell className="font-medium">₹ {total.toFixed(2)}</TableCell>
+                        <TableCell>
+                          {lines.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setLines(lines.filter((_, idx) => idx !== i))}
+                              className="h-7 w-7 text-red-500 hover:text-red-700 hover:bg-red-50"
+                              title="Remove"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </TableCell>
                       </TableRow>
                     );
                   })}
                 </TableBody>
               </Table>
+            </div>
+
+            {/* Mobile Card View for Dispense Medicines */}
+            <div className="space-y-2.5 md:hidden">
+              {lines.map((l, i) => {
+                const m = medById(l.medicineId);
+                const cat = m ? catById(m.categoryId) : null;
+                const units = Number(l.units) || 0;
+                const pieces = units * (cat?.piecesPerUnit || 1);
+                const total = units * (m?.mrp || 0);
+
+                return (
+                  <div
+                    key={i}
+                    className={`rounded-lg border p-3 shadow-xs space-y-2.5 transition-colors ${
+                      l.selected
+                        ? "bg-card border-primary/40 ring-1 ring-primary/20"
+                        : "bg-muted/30 border-border opacity-70"
+                    }`}
+                  >
+                    {/* Top Row: Checkbox to dispense + Medicine Select + Delete Button */}
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id={`line-disp-${i}`}
+                        checked={l.selected}
+                        onCheckedChange={(v) => {
+                          const arr = [...lines];
+                          arr[i] = { ...arr[i], selected: !!v };
+                          setLines(arr);
+                        }}
+                        className="h-4 w-4 shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <Select
+                          value={l.medicineId}
+                          onValueChange={(v) => {
+                            const arr = [...lines];
+                            arr[i] = { ...arr[i], medicineId: v };
+                            setLines(arr);
+                          }}
+                        >
+                          <SelectTrigger className="w-full h-9 text-xs">
+                            <SelectValue placeholder="Select medicine..." />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-60 overflow-y-auto">
+                            {db.medicines.map((med) => (
+                              <SelectItem key={med.id} value={med.id} className="text-xs">
+                                {med.name} (Stock: {med.quantity})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {lines.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setLines(lines.filter((_, idx) => idx !== i))}
+                          className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 shrink-0"
+                          title="Remove medicine"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Details: Category, Units Input */}
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-border/50">
+                      <div>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wide block">
+                          Category
+                        </span>
+                        <span className="font-medium text-foreground text-xs">
+                          {cat?.name ? `${cat.name} (${cat.unit})` : "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wide block">
+                          Units ({cat?.unit || "Unit"})
+                        </span>
+                        <Input
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          className="h-8 text-xs font-semibold mt-0.5"
+                          value={l.units}
+                          onChange={(e) => {
+                            const arr = [...lines];
+                            arr[i] = { ...arr[i], units: e.target.value };
+                            setLines(arr);
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-muted-foreground text-[11px] pt-1">
+                        <span>Pieces: <strong className="text-foreground">{pieces}</strong></span>
+                        <span>MRP: <strong className="text-foreground">₹ {m?.mrp ?? "—"}</strong></span>
+                      </div>
+                      <div className="flex items-center justify-end text-sm font-bold text-primary pt-1">
+                        <span>Total: ₹ {total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="flex justify-start">
@@ -468,7 +691,7 @@ function DispenseTab() {
         )}
 
         <Dialog open={!!bill} onOpenChange={(v) => !v && setBill(null)}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="w-[96vw] sm:max-w-lg max-h-[92vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader><DialogTitle>Invoice</DialogTitle></DialogHeader>
             {bill && patient && <BillPrint bill={bill} patient={patient} hospitalSettings={db.hospitalSettings} />}
             <div className="flex justify-end gap-2 no-print">
@@ -750,7 +973,8 @@ function BillsTab() {
           <Search className="absolute right-3 top-2.5 h-4 w-4 text-muted-foreground" />
         </div>
 
-        <div className="rounded-lg border overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="rounded-lg border overflow-x-auto hidden md:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -791,8 +1015,53 @@ function BillsTab() {
           </Table>
         </div>
 
+        {/* Mobile Grid View */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 md:hidden">
+          {filteredBills.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-sm col-span-full border rounded-lg bg-muted/20">
+              No bills found
+            </div>
+          ) : (
+            filteredBills.map((b) => (
+              <div
+                key={b.id}
+                className="rounded-lg border bg-card p-3 shadow-sm hover:border-primary/40 transition-colors flex flex-col justify-between gap-2.5"
+              >
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span className="font-mono font-semibold text-primary/90"># {b.id}</span>
+                    <span>{new Date(b.createdAt).toLocaleDateString()}</span>
+                  </div>
+
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="font-semibold text-sm text-foreground">{getPatientName(b)}</span>
+                    <span className="font-bold text-sm text-foreground">₹ {b.total.toFixed(2)}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span className="font-mono text-[11px]">Code: {b.patientCode}</span>
+                    <span>Subtotal: ₹ {b.subtotal.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end pt-2 border-t border-border/60">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setActiveBill(b)}
+                    className="h-7 text-xs px-2.5 gap-1.5 font-medium"
+                  >
+                    <Printer className="h-3 w-3 text-muted-foreground" />
+                    <span>View / Print</span>
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
         <Dialog open={!!activeBill} onOpenChange={(v) => !v && setActiveBill(null)}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="w-[96vw] sm:max-w-lg max-h-[92vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader><DialogTitle>Invoice</DialogTitle></DialogHeader>
             {activeBill && (
               <BillPrint

@@ -21,6 +21,8 @@ const MODULES: Record<string, string[]> = {
   "Reception": ["Access"],
   "OPD": ["Access"],
   "Medical": ["Access"],
+  "Laboratory": ["Access"],
+  "Medical Officer": ["Access"],
   "Settings": ["Access"],
   "Employees": ["Access"]
 };
@@ -89,8 +91,8 @@ export function RolePermissionsTab() {
     });
 
     const roleCounts: Record<string, number> = {};
-    const safeEmp = Array.isArray(employees) ? employees : [];
-    safeEmp.forEach((emp) => {
+    const safeEmp = Array.isArray(employees) ? employees : ((employees as any)?.items || []);
+    safeEmp.forEach((emp: any) => {
       const role = emp.role;
       if (role) {
         roleCounts[role] = (roleCounts[role] || 0) + 1;
@@ -104,7 +106,7 @@ export function RolePermissionsTab() {
     });
 
     // Add default roles if they don't exist yet
-    ["Admin", "Doctor", "Receptionist", "Pharmacist"].forEach(defaultRole => {
+    ["Admin", "Doctor", "Receptionist", "Pharmacist", "Lab Technician"].forEach(defaultRole => {
       if (!rolesMap[defaultRole]) {
         rolesMap[defaultRole] = {
           id: defaultRole,
@@ -263,27 +265,49 @@ export function RolePermissionsTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h3 className="text-lg font-medium">Roles & Permissions</h3>
-          <p className="text-sm text-muted-foreground">Manage access control for different user roles.</p>
+          <h3 className="text-base sm:text-lg font-medium">Roles & Permissions</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground">Manage access control for different user roles.</p>
         </div>
         {isAdmin && (
-          <Button onClick={() => setNewRoleOpen(true)} size="sm">
+          <Button onClick={() => setNewRoleOpen(true)} size="sm" className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" /> New Role
           </Button>
         )}
       </div>
 
       {!isAdmin && (
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-3 flex items-center gap-2 text-sm text-amber-700">
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-md p-3 flex items-center gap-2 text-xs sm:text-sm text-amber-700">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>You need Admin privileges to modify roles and permissions.</span>
         </div>
       )}
 
+      {/* Mobile Horizontal Role Selector */}
+      <div className="md:hidden flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
+        {roles.map((r) => (
+          <button
+            key={r.id}
+            onClick={() => setSelectedId(r.id)}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-xs font-medium shrink-0 flex items-center gap-1.5 border transition-all",
+              r.id === effectiveSelectedId
+                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                : "bg-card hover:bg-muted/60 border-border text-foreground"
+            )}
+          >
+            <Shield className="h-3.5 w-3.5" />
+            <span>{r.name}</span>
+            <span className="text-[10px] opacity-75">({r.userCount})</span>
+            {r.locked && <span className="text-[9px] opacity-75">🔒</span>}
+          </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4">
-        <Card className="p-2 space-y-1 h-fit">
+        {/* Desktop Role List Sidebar */}
+        <Card className="hidden md:block p-2 space-y-1 h-fit">
           {roles.map((r) => (
             <div key={r.id} className="group relative">
               <button
@@ -306,6 +330,7 @@ export function RolePermissionsTab() {
                   onClick={(e) => { e.stopPropagation(); handleDeleteRole(r.id); }}
                   disabled={isDeletingRole}
                   className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded hover:bg-destructive/10 text-destructive transition-opacity"
+                  title="Delete role"
                 >
                   {isDeletingRole ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                 </button>
@@ -314,42 +339,68 @@ export function RolePermissionsTab() {
           ))}
         </Card>
 
-        <Card className="p-4 sm:p-5">
+        {/* Permissions Details Card */}
+        <Card className="p-3.5 sm:p-5">
           {role ? (
             <>
-              <div className="flex justify-between items-start mb-5">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-5 pb-3 border-b">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-lg">{role.name}</h3>
+                    <h3 className="font-semibold text-base sm:text-lg">{role.name}</h3>
                     {!role.locked && isAdmin && (
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setRenameValue(role.name); setRenameOpen(true); }}>
-                        <Pencil className="h-3 w-3" />
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setRenameValue(role.name); setRenameOpen(true); }} title="Rename role">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {!role.locked && isAdmin && role.userCount === 0 && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-7 w-7 text-destructive hover:bg-destructive/10 md:hidden" 
+                        onClick={() => handleDeleteRole(role.id)}
+                        disabled={isDeletingRole}
+                        title="Delete role"
+                      >
+                        {isDeletingRole ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                       </Button>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground">{role.userCount} users assigned</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">{role.userCount} users assigned</p>
                 </div>
                 {isAdmin && (
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <label className="flex items-center gap-2 text-xs sm:text-sm cursor-pointer self-start sm:self-auto bg-muted/30 px-2.5 py-1.5 rounded-md border">
                     <Checkbox checked={role.locked} onCheckedChange={(c) => handleToggleLock(role.name, !!c)} />
-                    <span>Lock Role</span>
+                    <span className="font-medium">Lock Role</span>
                   </label>
                 )}
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {Object.keys(MODULES).map((mod) => {
                   const isAllowed = role.permissions[mod]?.includes("Access") ?? false;
 
                   return (
-                    <div key={mod} className="rounded-lg border bg-card p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                    <div key={mod} className="rounded-lg border bg-card/60 p-3 sm:p-4 flex items-start sm:items-center justify-between gap-3">
+                      <div className="flex items-start sm:items-center gap-3">
                         <Checkbox
                           checked={isAllowed}
                           onCheckedChange={(c) => handleToggleModule(mod, !!c)}
                           disabled={role.locked || !isAdmin}
+                          className="mt-0.5 sm:mt-0"
                         />
-                        <span className="font-medium text-sm">{mod}</span>
+                        <div>
+                          <span className="font-medium text-sm">{mod}</span>
+                          {mod === "Laboratory" && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Enables access to the Laboratory billing, tests, and diagnostics section.
+                            </p>
+                          )}
+                          {mod === "Medical Officer" && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Enables employees in this role to be selected as Attending Medical Officer in forms.
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -357,7 +408,7 @@ export function RolePermissionsTab() {
               </div>
             </>
           ) : (
-            <div className="text-center py-10 text-muted-foreground">Select a role</div>
+            <div className="text-center py-10 text-muted-foreground text-sm">Select a role</div>
           )}
         </Card>
       </div>

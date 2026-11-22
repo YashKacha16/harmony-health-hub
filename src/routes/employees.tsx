@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState, useEffect } from "react";
-import { Pencil, Plus, Search, Trash2, Eye, EyeOff } from "lucide-react";
+import { Pencil, Plus, Search, Trash2, Eye, EyeOff, Mail, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/components/RoleGuard";
@@ -91,19 +91,19 @@ function EmployeesPage() {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-4 sm:space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Employees</h2>
-          <p className="text-sm text-muted-foreground">Manage staff accounts, roles, and status.</p>
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight">Employees</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">Manage staff accounts, roles, and status.</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button onClick={openNew}><Plus className="h-4 w-4 mr-2" /> Add employee</Button>
+            <Button onClick={openNew} className="w-full sm:w-auto"><Plus className="h-4 w-4 mr-2" /> Add employee</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="w-[96vw] sm:max-w-2xl max-h-[92vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader><DialogTitle>{draft.id ? "Edit" : "New"} employee</DialogTitle></DialogHeader>
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 py-2">
               <Field label="Full name"><Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></Field>
               <Field label="Email"><Input type="email" autoComplete="off" value={draft.email} onChange={(e) => setDraft({ ...draft, email: e.target.value })} /></Field>
               <Field label="Password">
@@ -139,38 +139,45 @@ function EmployeesPage() {
                 <Label>Active</Label>
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button onClick={save}>{draft.id ? "Save changes" : "Create employee"}</Button>
+            <DialogFooter className="flex-col-reverse sm:flex-row gap-2 pt-2">
+              <Button variant="outline" onClick={() => setOpen(false)} className="w-full sm:w-auto">Cancel</Button>
+              <Button onClick={save} className="w-full sm:w-auto">{draft.id ? "Save changes" : "Create employee"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
       <Card className="shadow-[var(--shadow-card)]">
-        <CardContent className="p-5 space-y-4">
-          <div className="flex flex-wrap gap-3">
-            <div className="relative flex-1 min-w-[200px]">
+        <CardContent className="p-3.5 sm:p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-2.5">
+            <div className="relative flex-1">
               <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-9" placeholder="Search by name, email, code..." value={q} onChange={(e) => setQ(e.target.value)} />
+              <Input className="pl-9 h-9 sm:h-10 text-sm" placeholder="Search by name, email, code..." value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
-            <Select value={roleF} onValueChange={setRoleF}>
-              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Role" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All roles</SelectItem>
-                {ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={deptF} onValueChange={setDeptF}>
-              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Department" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All departments</SelectItem>
-                {db.departments.map((d) => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <div className="grid grid-cols-2 sm:flex gap-2">
+              <Select value={roleF} onValueChange={setRoleF}>
+                <SelectTrigger className="w-full sm:w-[150px] h-9 sm:h-10 text-xs sm:text-sm">
+                  <SelectValue placeholder="Role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All roles</SelectItem>
+                  {ROLES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={deptF} onValueChange={setDeptF}>
+                <SelectTrigger className="w-full sm:w-[160px] h-9 sm:h-10 text-xs sm:text-sm">
+                  <SelectValue placeholder="Department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All departments</SelectItem>
+                  {db.departments.map((d) => <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          <div className="rounded-lg border overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="hidden md:block rounded-lg border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -189,10 +196,10 @@ function EmployeesPage() {
                 )}
                 {filtered.map((e) => (
                   <TableRow key={e.id}>
-                    <TableCell className="font-mono text-xs">{e.code}</TableCell>
-                    <TableCell className="font-medium">{e.name}</TableCell>
-                    <TableCell>{e.role}</TableCell>
-                    <TableCell>{e.department}</TableCell>
+                    <TableCell className="font-mono text-xs whitespace-nowrap">{e.code}</TableCell>
+                    <TableCell className="font-medium whitespace-nowrap">{e.name}</TableCell>
+                    <TableCell className="whitespace-nowrap">{e.role}</TableCell>
+                    <TableCell className="whitespace-nowrap">{e.department}</TableCell>
                     <TableCell className="text-muted-foreground">{e.email}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -200,7 +207,7 @@ function EmployeesPage() {
                         <Badge variant={e.active ? "default" : "secondary"}>{e.active ? "Active" : "Inactive"}</Badge>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(e)}><Pencil className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={async () => { await employeeService.remove(e.id); toast.success("Employee removed"); }}>
                         <Trash2 className="h-4 w-4" />
@@ -210,6 +217,94 @@ function EmployeesPage() {
                 ))}
               </TableBody>
             </Table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="space-y-3 md:hidden">
+            {filtered.length === 0 ? (
+              <div className="p-6 text-center rounded-lg border border-dashed text-sm text-muted-foreground">
+                No employees found
+              </div>
+            ) : (
+              filtered.map((e) => (
+                <div key={e.id} className="p-3.5 rounded-lg border bg-card/60 shadow-sm space-y-2.5">
+                  {/* Top row: Code, Role badge, Status switch */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs px-2 py-0.5 rounded bg-muted font-medium text-foreground">
+                        {e.code}
+                      </span>
+                      <Badge variant="outline" className="text-[11px] px-2 py-0 border-primary/30 text-primary bg-primary/5">
+                        {e.role}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Switch 
+                        checked={e.active} 
+                        onCheckedChange={() => employeeService.toggle(e.id)} 
+                        className="scale-90"
+                      />
+                      <Badge variant={e.active ? "default" : "secondary"} className="text-[10px] px-1.5 py-0 h-5">
+                        {e.active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Name and Department */}
+                  <div>
+                    <div className="font-semibold text-base text-foreground leading-snug">{e.name}</div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                      <span className="font-medium text-foreground/80">{e.department}</span>
+                      {e.joiningDate && (
+                        <>
+                          <span>•</span>
+                          <span>Joined {e.joiningDate}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Contact info: Email, Phone */}
+                  <div className="space-y-1 pt-1.5 border-t border-border/50 text-xs text-muted-foreground">
+                    {e.email && (
+                      <div className="flex items-center gap-2 truncate">
+                        <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                        <span className="truncate">{e.email}</span>
+                      </div>
+                    )}
+                    {e.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+                        <span>{e.phone}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/50">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-8 px-3 text-xs flex-1"
+                      onClick={() => openEdit(e)}
+                    >
+                      <Pencil className="h-3.5 w-3.5 mr-1.5" /> Edit
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" 
+                      onClick={async () => { 
+                        await employeeService.remove(e.id); 
+                        toast.success("Employee removed"); 
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

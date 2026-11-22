@@ -158,15 +158,17 @@ export interface PatientBackendDto {
   emergencyMedicalOfficer?: string;
   emergencyCondition?: string;
   emergencyPastHistory?: string;
-  emergencyBp?: string;
-  emergencyPulse?: string;
-  emergencySpo2?: string;
-  emergencyTemp?: string;
-  emergencyRr?: string;
   emergencyInvestigations?: string;
   emergencyDoctorsNote?: string;
   emergencyStateInjection?: string;
   emergencyNote?: string;
+  isSurgery?: boolean;
+  surgeryType?: string;
+  surgeryRiskNote?: string;
+  surgeryPreOpStatus?: string;
+  surgeryPostOpStatus?: string;
+  surgeryPastHistory?: string;
+  isIcu?: boolean;
 }
 
 export interface CreatePatientPayload {
@@ -223,15 +225,17 @@ export interface CreatePatientPayload {
   emergencyMedicalOfficer?: string;
   emergencyCondition?: string;
   emergencyPastHistory?: string;
-  emergencyBp?: string;
-  emergencyPulse?: string;
-  emergencySpo2?: string;
-  emergencyTemp?: string;
-  emergencyRr?: string;
   emergencyInvestigations?: string;
   emergencyDoctorsNote?: string;
   emergencyStateInjection?: string;
   emergencyNote?: string;
+  isSurgery?: boolean;
+  surgeryType?: string;
+  surgeryRiskNote?: string;
+  surgeryPreOpStatus?: string;
+  surgeryPostOpStatus?: string;
+  surgeryPastHistory?: string;
+  isIcu?: boolean;
 }
 
 export interface UpdatePatientPayload {
@@ -285,6 +289,7 @@ export interface UpdatePatientPayload {
   mlcPoliceInspectorName?: string;
   mlcPoliceStationAddress?: string;
   mlcFirOrCcNumber?: string;
+  isIcu?: boolean;
 }
 
 export interface CreateEmployeePayload {
@@ -570,7 +575,8 @@ export const apiService = {
   },
   employees: {
     getAll: async (): Promise<EmployeeBackendDto[]> => {
-      return apiClient<EmployeeBackendDto[]>("/employee");
+      const res = await apiClient<any>("/employee");
+      return Array.isArray(res) ? res : (res?.items || []);
     },
     getById: async (id: number): Promise<EmployeeBackendDto> => {
       return apiClient<EmployeeBackendDto>(`/employee/${id}`);
